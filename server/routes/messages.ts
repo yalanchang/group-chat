@@ -1,0 +1,202 @@
+import { Router } from 'express'
+import pool from '../database/connection'
+import { RowDataPacket } from 'mysql2'
+import { authenticateToken } from '../middleware/auth'
+
+const router = Router()
+
+// 獲取聊天室的訊息
+router.get('/room/:roomId', authenticateToken, async (req: any, res) => {
+  const { roomId } = req.params
+  const { page = 1, limit = 50 } = req.query
+  const offset = (parseInt(page) - 1) * parseInt(limit)
+
+  try {
+    // 檢查用戶是否為聊天室成員
+    const [members] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM room_members WHERE room_id = ? AND user_id = ?',
+      [roomId, req.userId]
+    )
+
+    if (members.length === 0) {
+      return res.status(403).json({ message: 'Access denied' })
+    }
+
+    // 獲取訊息
+    const [messages] = await pool.execute<RowDataPacket[]>(
+      `SELECT 
+        m.id,
+        m.content,
+        m.type,
+        m.file_url,
+        m.is_edited,
+        m.is_deleted,
+        m.created_at,
+        m.updated_at,
+        u.id as user_id,
+        u.username,
+        u.avatar,
+        (SELECT COUNT(*) FROM message_reads WHERE message_id = m.id) as read_count
+      FROM messages m
+      JOIN users u ON m.user_id = u.id
+      WHERE m.room_id = ? AND m.is_deleted = FALSE
+      ORDER BY m.created_at DESC
+      LIMIT ? OFFSET ?`,
+      [roomId, parseInt(limit), offset]
+    )
+
+    // 獲取總數
+    const [countResult] = await pool.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) as total FROM messages WHERE room_id = ? AND is_deleted = FALSE',
+      [roomId]
+    )
+
+    res.json({
+      messages: messages.reverse(),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: countResult[0].total,
+        totalPages: Math.ceil(countResult[0].total / parseInt(limit))
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching messages:', error)
+    res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+// 搜尋訊息
+router.get('/search', authenticateToken, async (req: any, res) => {
+  const { q, roomId } = req.query
+
+  if (!q) {
+    return res.status(400).json({ message: 'Search query is required' })
+  }
+
+  try {
+    let query = `
+      SELECT 
+        m.id,
+        m.content,
+        m.room_id,
+        m.created_at,
+        u.username,
+        u.avatar,
+        r.name as room_name
+      FROM messages m
+      JOIN users u ON m.user_id = u.id
+      JOIN rooms r ON m.room_id = r.id
+      JOIN room_members rm ON rm.room_id = r.id AND rm.user_id = ?
+      WHERE m.content LIKE ? AND m.is_deleted = FALSE
+    `
+    const params: any[] = [req.userId, `%${q}%`]
+
+    if (roomId) {
+      query += ' AND m.room_id = ?'
+      params.push(roomId)
+    }
+
+    query += ' ORDER BY m.created_at DESC LIMIT 50'
+
+    const [messages] = await pool.execute<RowDataPacket[]>(query, params)
+
+    res.json({ messages })
+  } catch (error) {
+    console.error('Error searching messages:', error)
+    res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+// 獲取未讀訊息數量
+router.get('/unread', authenticateToken, async (req: any, res) => {
+  try {
+    const [result] = await pool.execute<RowDataPacket[]>(
+      `SELECT 
+        rm.room_id,
+        r.name as room_name,
+        COUNT(m.id) as unread_count
+      FROM room_members rm
+      JOIN rooms r ON rm.room_id = r.id
+      JOIN messages m ON m.room_id = rm.room_id AND m.created_at > rm.last_read_at
+      WHERE rm.user_id = ? AND m.user_id != ?
+      GROUP BY rm.room_id, r.name`,
+      [req.userId, req.userId]
+    )
+
+    res.json({ unreadCounts: result })
+  } catch (error) {
+    console.error('Error fetching unread counts:', error)
+    res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+// 標記聊天室訊息為已讀
+router.post('/room/:roomId/read', authenticateToken, async (req: any, res) => {
+  const { roomId } = req.params
+
+  try {
+    // 更新最後讀取時間
+    await pool.execute(
+      'UPDATE room_members SET last_read_at = NOW() WHERE room_id = ? AND user_id = ?',
+      [roomId, req.userId]
+    )
+
+    // 標記所有訊息為已讀
+    await pool.execute(
+      `INSERT INTO message_reads (message_id, user_id)
+       SELECT m.id, ? FROM messages m
+       WHERE m.room_id = ? AND m.user_id != ?
+       AND NOT EXISTS (
+         SELECT 1 FROM message_reads mr 
+         WHERE mr.message_id = m.id AND mr.user_id = ?
+       )`,
+      [req.userId, roomId, req.userId, req.userId]
+    )
+
+    res.json({ message: 'Messages marked as read' })
+  } catch (error) {
+    console.error('Error marking messages as read:', error)
+    res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+// 獲取訊息的已讀狀態
+router.get('/:messageId/reads', authenticateToken, async (req: any, res) => {
+  const { messageId } = req.params
+
+  try {
+    // 檢查用戶是否有權限查看此訊息
+    const [messages] = await pool.execute<RowDataPacket[]>(
+      `SELECT m.* FROM messages m
+       JOIN room_members rm ON rm.room_id = m.room_id
+       WHERE m.id = ? AND rm.user_id = ?`,
+      [messageId, req.userId]
+    )
+
+    if (messages.length === 0) {
+      return res.status(403).json({ message: 'Access denied' })
+    }
+
+    // 獲取已讀用戶列表
+    const [reads] = await pool.execute<RowDataPacket[]>(
+      `SELECT 
+        u.id,
+        u.username,
+        u.avatar,
+        mr.read_at
+      FROM message_reads mr
+      JOIN users u ON mr.user_id = u.id
+      WHERE mr.message_id = ?
+      ORDER BY mr.read_at ASC`,
+      [messageId]
+    )
+
+    res.json({ reads })
+  } catch (error) {
+    console.error('Error fetching read status:', error)
+    res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+export default router
