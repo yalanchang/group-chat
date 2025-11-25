@@ -14,7 +14,7 @@ export default function Sidebar() {
       <button
         type="button"
         aria-label="Home"
-        className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg flex items-center justify-center text-2xl mb-8 transform transition-transform duration-300 hover:scale-110 hover:shadow-2xl"
+        className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg flex items-center justify-center text-2xl mb-8 transform cursor-none "
       >
         💬
       </button>
@@ -57,7 +57,6 @@ export default function Sidebar() {
               role="dialog"
               aria-modal="true"
             >
-              {/* header */}
               <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center text-lg font-bold text-white">
@@ -81,10 +80,9 @@ export default function Sidebar() {
                     setShowMenu(false)
                     logout()
                   }}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-400 font-semibold hover:bg-red-500/10 transition-colors"
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-400 font-semibold "
                 >
-                  <span className="text-lg">🚪</span>
-                  <span>Logout</span>
+                  <span>登出</span>
                 </button>
               </div>
             </div>

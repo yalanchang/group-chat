@@ -109,18 +109,15 @@ export default function RoomList({ selectedRoom, onSelectRoom }: RoomListProps) 
 
   return (
     <>
-      <div className="w-80 bg-gradient-to-b from-gray-50 to-white border-r border-gray-200 flex flex-col shadow-sm">
-        {/* 頭部 - 美化 */}
+      <div className="w-80 h-full bg-gradient-to-b from-gray-50 to-white border-r border-gray-200 flex flex-col shadow-sm">
         <div className="p-5 border-b border-gray-200 bg-white">
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <span className="text-2xl">💬</span>
-              Rooms
-            </h2>
+聊天室            </h2>
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            {rooms.length} room{rooms.length !== 1 ? 's' : ''} available
+            {rooms.length} 間房間可加入
           </p>
         </div>
 
@@ -164,11 +161,11 @@ export default function RoomList({ selectedRoom, onSelectRoom }: RoomListProps) 
               </button>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 ">
               {rooms.map((room) => (
                 <div
                   key={room.id}
-                  className={`group relative rounded-xl transition-all duration-200 ${
+                  className={`group  relative rounded-xl transition-all duration-200 ${
                     selectedRoom === room.id.toString()
                       ? 'bg-gradient-to-r from-primary-500 to-primary-600 shadow-lg scale-[1.02]'
                       : 'bg-white hover:bg-gray-50 hover:shadow-md border border-gray-200'
@@ -200,7 +197,6 @@ export default function RoomList({ selectedRoom, onSelectRoom }: RoomListProps) 
                           )}
                         </div>
 
-                        {/* 房間描述 */}
                         {room.description && (
                           <p className={`text-xs truncate mb-2 ${
                             selectedRoom === room.id.toString()
@@ -211,7 +207,6 @@ export default function RoomList({ selectedRoom, onSelectRoom }: RoomListProps) 
                           </p>
                         )}
 
-                        {/* 狀態標記 */}
                         <div className="flex items-center gap-2">
                           {room.is_member ? (
                             <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${
@@ -222,14 +217,14 @@ export default function RoomList({ selectedRoom, onSelectRoom }: RoomListProps) 
                               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
                               </svg>
-                              Joined
+                              已加入
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-blue-100 text-blue-700">
                               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
                               </svg>
-                              Public
+                              公開
                             </span>
                           )}
 
@@ -245,7 +240,6 @@ export default function RoomList({ selectedRoom, onSelectRoom }: RoomListProps) 
                         </div>
                       </div>
 
-                      {/* 右側圖標 */}
                       {selectedRoom === room.id.toString() ? (
                         <div className="flex-shrink-0 text-white">
                           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -262,7 +256,6 @@ export default function RoomList({ selectedRoom, onSelectRoom }: RoomListProps) 
                     </div>
                   </button>
 
-                  {/* Join 按鈕 - 美化 */}
                   {!room.is_member && selectedRoom !== room.id.toString() && (
                     <div className="absolute top-2 right-2">
                       <button
@@ -303,7 +296,6 @@ export default function RoomList({ selectedRoom, onSelectRoom }: RoomListProps) 
             <svg className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
             </svg>
-            Create New Room
           </button>
         </div>
       </div>

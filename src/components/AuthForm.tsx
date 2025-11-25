@@ -61,56 +61,45 @@ export default function AuthForm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-4 relative overflow-hidden">
-      {/* 背景裝飾 */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-white/10 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-1/2 -left-1/2 w-full h-full bg-white/10 rounded-full blur-3xl"></div>
       </div>
 
-      {/* 主要卡片 */}
       <div className="relative z-10 bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-8 w-full max-w-md border border-white/20">
-        {/* 頭部 */}
         <div className="text-center mb-8">
-          {/* Logo/Icon */}
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl mb-4 shadow-lg">
             <span className="text-3xl">💬</span>
           </div>
           
           <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            {isLogin ? 'Welcome Back' : 'Create Account'}
+            {isLogin ? '歡迎回來' : '創建帳戶'}
           </h1>
           <p className="text-gray-600">
-            {isLogin ? 'Sign in to continue chatting' : 'Join our community today'}
+            {isLogin ? '創建帳戶開啟聊天' : '加入我們'}
           </p>
         </div>
 
-        {/* 錯誤訊息 */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg animate-in slide-in-from-top duration-300">
+          <div className="mb-6 p-4 bg-red-50  rounded-lg animate-in slide-in-from-top duration-300">
             <div className="flex items-center">
-              <span className="text-red-500 mr-2">⚠️</span>
               <p className="text-sm text-red-700 font-medium">{error}</p>
             </div>
           </div>
         )}
 
-        {/* 表單 */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Username */}
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-700">
-              Username
-            </label>
+會員名稱            </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-400">👤</span>
-              </div>
+            
               <input
                 type="text"
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all duration-200 outline-none"
-                placeholder="Enter your username"
+                className="w-full pl-4 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all duration-200 outline-none"
+                placeholder="請輸入名稱"
                 required
               />
             </div>
@@ -119,18 +108,15 @@ export default function AuthForm() {
           {!isLogin && (
             <div className="space-y-2 animate-in slide-in-from-top duration-300">
               <label className="block text-sm font-semibold text-gray-700">
-                Email
-              </label>
+信箱              </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-400">📧</span>
-                </div>
+             
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all duration-200 outline-none"
-                  placeholder="Enter your email"
+                  className="w-full pl-4 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all duration-200 outline-none"
+                  placeholder="請輸入信箱"
                   required
                 />
               </div>
@@ -139,18 +125,15 @@ export default function AuthForm() {
 
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-700">
-              Password
-            </label>
+密碼            </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-400">🔒</span>
-              </div>
+            
               <input
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all duration-200 outline-none"
-                placeholder="Enter your password"
+                className="w-full pl-4 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all duration-200 outline-none"
+                placeholder="請輸入密碼"
                 required
               />
             </div>
@@ -173,13 +156,11 @@ export default function AuthForm() {
               <span className="flex items-center justify-center gap-2">
                 {isLogin ? (
                   <>
-                    <span>Sign In</span>
-                    <span>→</span>
+                    <span>登入</span>
                   </>
                 ) : (
                   <>
-                    <span>Create Account</span>
-                    <span>✨</span>
+                    <span>創建帳戶</span>
                   </>
                 )}
               </span>
@@ -196,7 +177,6 @@ export default function AuthForm() {
             </div>
           </div>
 
-          {/* 切換模式按鈕 */}
           <div className="text-center">
             <button
               type="button"
@@ -204,23 +184,15 @@ export default function AuthForm() {
               className="text-purple-600 hover:text-purple-700 font-semibold hover:underline transition-all duration-200"
             >
               {isLogin
-                ? "Don't have an account? Sign up →"
-                : 'Already have an account? Sign in →'}
+                ? "註冊帳戶"
+                : '會員登入'}
             </button>
           </div>
         </form>
 
-        {/* 裝飾性底部 */}
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <p className="text-center text-xs text-gray-500">
-            By continuing, you agree to our Terms of Service and Privacy Policy
-          </p>
-        </div>
       </div>
 
-      {/* 浮動裝飾圓圈 */}
-      <div className="absolute top-20 left-20 w-32 h-32 bg-yellow-400/20 rounded-full blur-3xl animate-pulse"></div>
-      <div className="absolute bottom-20 right-20 w-40 h-40 bg-pink-400/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+     
     </div>
   )
 }

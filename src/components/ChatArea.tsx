@@ -75,11 +75,9 @@ export default function ChatArea({ roomId }: ChatAreaProps) {
   useEffect(() => {
     if (!socket || !roomId) return
 
-    console.log('🔌 Joining room:', roomId)
     socket.emit('join-room', parseInt(roomId))
 
     const handleNewMessage = (message: Message) => {
-      console.log('💬 New message:', message)
       setMessages((prev) => {
         if (prev.find(m => m.id === message.id)) return prev
         return [...prev, message]
@@ -137,46 +135,21 @@ export default function ChatArea({ roomId }: ChatAreaProps) {
   }
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      height: '100vh',
-      backgroundColor: 'white'
-    }}>
-      {/* 頭部 */}
-      <div style={{
-        padding: '16px',
-        borderBottom: '1px solid #e5e7eb',
-        backgroundColor: 'white',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="h-screen flex flex-col bg-white overflow-hidden">
+      <div className="flex-none p-4 border-b border-gray-200 bg-white">
+        <div className="flex items-center justify-between">
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827', margin: 0 }}>
+            <h2 className="text-xl font-bold text-gray-900">
               {roomInfo?.name || 'Loading...'}
             </h2>
             {roomInfo?.description && (
-              <p style={{ fontSize: '14px', color: '#6b7280', margin: '4px 0 0 0' }}>
-                {roomInfo.description}
-              </p>
+              <p className="text-sm text-gray-500 mt-1">{roomInfo.description}</p>
             )}
           </div>
           
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px',
-            padding: '4px 12px',
-            backgroundColor: '#f3f4f6',
-            borderRadius: '9999px'
-          }}>
-            <div style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: connected ? '#10b981' : '#ef4444'
-            }}></div>
-            <span style={{ fontSize: '12px', fontWeight: '500', color: '#374151' }}>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
+            <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className="text-xs font-medium text-gray-700">
               {connected ? 'Connected' : 'Disconnected'}
             </span>
           </div>
@@ -184,101 +157,65 @@ export default function ChatArea({ roomId }: ChatAreaProps) {
       </div>
 
       {/* 訊息區域 */}
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: '16px',
-        backgroundColor: '#f9fafb'
-      }}>
+      <div className="flex-1 overflow-y-auto p-4 bg-gray-50 min-h-0">
         {messages.length === 0 ? (
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            height: '100%',
-            textAlign: 'center'
-          }}>
-            <div>
-              <div style={{ marginBottom: '16px', fontSize: '48px' }}>💬</div>
-              <h3 style={{ fontSize: '18px', fontWeight: '500', color: '#111827', margin: '0 0 4px 0' }}>
-                No messages yet
-              </h3>
-              <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>
-                Start the conversation by sending a message below
-              </p>
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="mb-4">
+                <svg
+                  className="mx-auto h-16 w-16 text-gray-300"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900">尚未有聊天訊息</h3>
+              <p className="text-sm text-gray-500 mt-1">開啟聊天吧</p>
             </div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="space-y-4">
             {messages.map((message) => {
               const isOwnMessage = message.user_id === user?.id
 
               return (
                 <div
                   key={message.id}
-                  style={{
-                    display: 'flex',
-                    justifyContent: isOwnMessage ? 'flex-end' : 'flex-start'
-                  }}
+                  className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div style={{ maxWidth: '384px' }}>
+                  <div className="max-w-xs lg:max-w-md">
                     {!isOwnMessage && (
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '8px',
-                        marginBottom: '4px',
-                        marginLeft: '8px'
-                      }}>
-                        <div style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          backgroundColor: '#3b82f6',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white',
-                          fontSize: '12px',
-                          fontWeight: 'bold'
-                        }}>
+                      <div className="flex items-center gap-2 mb-1 ml-2">
+                        <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
                           {message.username.charAt(0).toUpperCase()}
                         </div>
-                        <span style={{ fontSize: '12px', fontWeight: '500', color: '#4b5563' }}>
+                        <span className="text-xs font-medium text-gray-600">
                           {message.username}
                         </span>
                       </div>
                     )}
                     
-                    <div style={{
-                      padding: '8px 16px',
-                      borderRadius: '16px',
-                      backgroundColor: isOwnMessage ? '#2563eb' : 'white',
-                      color: isOwnMessage ? 'white' : '#111827',
-                      border: isOwnMessage ? 'none' : '1px solid #e5e7eb',
-                      boxShadow: isOwnMessage ? 'none' : '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                      borderBottomRightRadius: isOwnMessage ? '4px' : '16px',
-                      borderBottomLeftRadius: isOwnMessage ? '16px' : '4px'
-                    }}>
-                      <p style={{ 
-                        fontSize: '14px', 
-                        margin: 0,
-                        wordBreak: 'break-word',
-                        whiteSpace: 'pre-wrap'
-                      }}>
+                    <div
+                      className={`px-4 py-2 rounded-2xl ${
+                        isOwnMessage
+                          ? 'bg-blue-600 text-white rounded-br-sm'
+                          : 'bg-white text-gray-900 border border-gray-200 rounded-bl-sm shadow-sm'
+                      }`}
+                    >
+                      <p className="text-sm break-words whitespace-pre-wrap">
                         {message.content}
                       </p>
                     </div>
                     
                     {message.created_at && (
-                      <div style={{
-                        fontSize: '12px',
-                        color: '#9ca3af',
-                        marginTop: '4px',
-                        textAlign: isOwnMessage ? 'right' : 'left',
-                        marginRight: isOwnMessage ? '8px' : '0',
-                        marginLeft: isOwnMessage ? '0' : '8px'
-                      }}>
+                      <div className={`text-xs text-gray-400 mt-1 ${isOwnMessage ? 'text-right mr-2' : 'ml-2'}`}>
                         {formatTime(message.created_at)}
                       </div>
                     )}
@@ -291,45 +228,21 @@ export default function ChatArea({ roomId }: ChatAreaProps) {
         )}
       </div>
 
-      {/* 輸入區域 */}
-      <div style={{
-        padding: '16px',
-        borderTop: '1px solid #e5e7eb',
-        backgroundColor: 'white',
-        flexShrink: 0
-      }}>
-        <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: '8px' }}>
+      <div className="flex-none p-4 border-t border-gray-200 bg-white">
+        <form onSubmit={handleSendMessage} className="flex gap-2">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder={connected ? "Type a message..." : "Connecting..."}
             disabled={!connected || loading}
-            style={{
-              flex: 1,
-              padding: '12px 16px',
-              border: '1px solid #d1d5db',
-              borderRadius: '8px',
-              fontSize: '14px',
-              outline: 'none',
-              backgroundColor: (!connected || loading) ? '#f3f4f6' : 'white',
-              color: '#111827'
-            }}
+            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-900 placeholder-gray-400 outline-none"
             autoFocus
           />
           <button
             type="submit"
             disabled={!connected || loading || !newMessage.trim()}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: (!connected || loading || !newMessage.trim()) ? '#93c5fd' : '#2563eb',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontWeight: '600',
-              cursor: (!connected || loading || !newMessage.trim()) ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.2s'
-            }}
+            className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Sending...' : 'Send'}
           </button>
