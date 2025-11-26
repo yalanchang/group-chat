@@ -42,10 +42,6 @@ router.get('/', authenticateToken, async (req: any, res) => {
   })
 
 
-
-
-
-  // 創建新聊天室
 router.post('/', authenticateToken, async (req: any, res) => {
   const { name, description, type = 'group', memberIds = [] } = req.body
 
@@ -122,7 +118,7 @@ router.get('/:roomId', authenticateToken, async (req: any, res) => {
     const { roomId } = req.params
   
     try {
-      console.log('📥 Fetching room info for room:', roomId)
+      console.log('Fetching room info for room:', roomId)
   
       // 檢查用戶是否為成員
       const [members] = await pool.execute<RowDataPacket[]>(
@@ -177,7 +173,7 @@ router.get('/:roomId', authenticateToken, async (req: any, res) => {
     const { roomId } = req.params
   
     try {
-      console.log('📥 Fetching messages for room:', roomId, 'user:', req.userId)
+      console.log('Fetching messages for room:', roomId, 'user:', req.userId)
   
       // 檢查用戶是否為房間成員
       const [members] = await pool.execute<RowDataPacket[]>(
@@ -218,7 +214,6 @@ router.put('/:roomId', authenticateToken, async (req: any, res) => {
   const { name, description } = req.body
 
   try {
-    // 檢查用戶是否為管理員
     const [members] = await pool.execute<RowDataPacket[]>(
       'SELECT * FROM room_members WHERE room_id = ? AND user_id = ? AND role IN (?, ?)',
       [roomId, req.userId, 'admin', 'moderator']
@@ -265,7 +260,7 @@ router.put('/:roomId', authenticateToken, async (req: any, res) => {
       values
     )
 
-    res.json({ message })
+    res.json({ message: "房間資訊已更新" })
   } catch (error) {
     console.error('Error updating room:', error)
     res.status(500).json({ message: 'Internal server error' })
@@ -287,7 +282,6 @@ router.post('/:roomId/join', authenticateToken, async (req: any, res) => {
   
       const room = rooms[0]
   
-      console.log('Step 2: Checking existing membership...')
       const [existingMembers] = await pool.execute<RowDataPacket[]>(
         'SELECT * FROM room_members WHERE room_id = ? AND user_id = ?',
         [roomId, req.userId]

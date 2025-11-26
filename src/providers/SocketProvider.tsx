@@ -18,11 +18,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user) {
-      console.log('⚠️ SocketProvider: No user, skipping socket connection')
       return
     }
-
-    console.log('🔌 SocketProvider: Connecting to WebSocket...')
 
     const token = localStorage.getItem('token')
     
@@ -71,7 +68,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
   }, [user])
 
-  console.log('🔌 SocketProvider render:', { 
+  console.log('SocketProvider render:', { 
     hasSocket: !!socket, 
     connected,
     hasUser: !!user 

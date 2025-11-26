@@ -245,39 +245,79 @@ socket.on('join-room', async (roomId: number) => {
       }
     })
 
-    // 刪除訊息
-    socket.on('delete-message', async (data: { messageId: number }) => {
-      const { messageId } = data
+  // 刪除訊息 - 只對自己隱藏
+socket.on('delete-message', async (data: { messageId: number }) => {
+  const { messageId } = data
 
-      try {
-        // 檢查訊息擁有者
-        const [messages] = await pool.execute<RowDataPacket[]>(
-          'SELECT * FROM messages WHERE id = ? AND user_id = ?',
-          [messageId, socket.userId]
-        )
+  try {
+    // 檢查訊息是否存在
+    const [messages] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM messages WHERE id = ?',
+      [messageId]
+    )
 
-        if (messages.length === 0) {
-          socket.emit('error', { message: 'Message not found or unauthorized' })
-          return
-        }
+    if (messages.length === 0) {
+      socket.emit('error', { message: 'Message not found' })
+      return
+    }
 
-        // 軟刪除訊息
-        await pool.execute(
-          'UPDATE messages SET is_deleted = TRUE WHERE id = ?',
-          [messageId]
-        )
+    await pool.execute(
+      `INSERT INTO user_deleted_messages (user_id, message_id) 
+       VALUES (?, ?) 
+       ON DUPLICATE KEY UPDATE deleted_at = NOW()`,
+      [socket.userId, messageId]
+    )
 
-        const roomId = messages[0].room_id
+    socket.emit('message-deleted', { messageId })
 
-        // 通知聊天室內的所有人
-        io.to(`room-${roomId}`).emit('message-deleted', {
-          messageId
-        })
-      } catch (error) {
-        console.error('Error deleting message:', error)
-        socket.emit('error', { message: 'Failed to delete message' })
-      }
+  } catch (error) {
+    console.error('Error deleting message:', error)
+    socket.emit('error', { message: 'Failed to delete message' })
+  }
+})
+
+    // 收回訊息 (所有人都會看到「訊息已收回」)
+socket.on('recall-message', async (data: { roomId: number; messageId: number }) => {
+  const { roomId, messageId } = data
+
+  try {
+    const [messages] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM messages WHERE id = ? AND user_id = ?',
+      [messageId, socket.userId]
+    )
+
+    if (messages.length === 0) {
+      socket.emit('error', { message: 'Message not found or unauthorized' })
+      return
+    }
+
+    const message = messages[0]
+
+    const messageTime = new Date(message.created_at).getTime()
+    const now = Date.now()
+    const twoMinutes = 2 * 60 * 1000
+
+    if (now - messageTime > twoMinutes) {
+      socket.emit('error', { message: '已超過可收回時間（2分鐘）' })
+      return
+    }
+
+    // 更新訊息為已收回
+    await pool.execute(
+      'UPDATE messages SET is_recalled = TRUE, content = "" WHERE id = ?',
+      [messageId]
+    )
+
+    // 通知聊天室內的所有人
+    io.to(`room-${roomId}`).emit('message-recalled', {
+      messageId
     })
+
+  } catch (error) {
+    console.error('Error recalling message:', error)
+    socket.emit('error', { message: 'Failed to recall message' })
+  }
+})
 
     // 標記訊息已讀
     socket.on('mark-read', async (data: { messageId: number }) => {

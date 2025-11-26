@@ -4,18 +4,19 @@ import { Server } from 'socket.io'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import jwt from 'jsonwebtoken'
-import bcrypt from 'bcryptjs'
-
+import bcrypt from 'bcrypt'
+import path from 'path'
 
 dotenv.config()
 
 import authRouter from './routes/auth'
 import messageRouter from './routes/messages'
 import roomRouter from './routes/rooms'
-
+import userProfileRoutes from './routes/profile';
 
 import { setupSocketHandlers } from './socket/socketHandlers'
 import pool from './database/connection'
+
 
 const app = express()
 const server = createServer(app)
@@ -36,16 +37,19 @@ app.use(cors({
 }))
 
 
+
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use((req: any, res, next) => {
   req.io = io
   next()
 })
-
 app.use('/api/auth', authRouter)
 app.use('/api/messages', messageRouter)
 app.use('/api/rooms', roomRouter)
+app.use('/api/user', userProfileRoutes);
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+
 
 setupSocketHandlers(io)
 
@@ -53,7 +57,7 @@ const PORT = process.env.PORT || 3001
 
 
 server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`)
+    console.log(`Server is running on ${PORT}`)
   })
 
 export { io, pool }

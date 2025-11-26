@@ -9,6 +9,8 @@ export default function Sidebar() {
   const { connected } = useSocket()
   const [showMenu, setShowMenu] = useState(false)
 
+  
+
   return (
     <aside className="w-20 min-h-screen bg-gradient-to-b from-gray-800 to-gray-900 flex flex-col items-center py-6 border-r border-gray-700 relative">
       <button
@@ -53,7 +55,8 @@ export default function Sidebar() {
             />
 
             <div
-              className="absolute bottom-full left-full ml-4 mb-2 w-60 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 z-50 overflow-hidden"
+            onClick={() => { window.location.href = '/profile'; }}
+              className="absolute bottom-full left-full ml-4 mb-2 w-60 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 z-50 overflow-hidden cursor-pointer"
               role="dialog"
               aria-modal="true"
             >

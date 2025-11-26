@@ -20,11 +20,16 @@ export default function AuthForm() {
     e.preventDefault()
     setError('')
     setLoading(true)
-
+  
     try {
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register'
       const url = `http://localhost:3001${endpoint}`
-
+  
+      // 🔍 調試：檢查發送的數據
+      console.log('📤 Sending request to:', url)
+      console.log('📤 Request data:', formData)
+      console.log('📤 Is login mode?:', isLogin)
+  
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -32,17 +37,23 @@ export default function AuthForm() {
         },
         body: JSON.stringify(formData),
       })
-
+  
+      // 🔍 調試：檢查回應
+      console.log('📥 Response status:', response.status)
+      
       const data = await response.json()
-
+      console.log('📥 Response data:', data)
+  
       if (!response.ok) {
+        console.log('❌ Login failed with status:', response.status)
+        console.log('❌ Error message:', data.message)
         throw new Error(data.message || 'Authentication failed')
       }
-
+  
       if (!data.token) {
         throw new Error('No token received from server')
       }
-
+  
       login(data.token, data.user)
       router.push('/chat')
     } catch (err: any) {

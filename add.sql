@@ -267,3 +267,45 @@ INSERT INTO notifications (user_id, type, title, content, related_id, related_ty
 -- 用戶設定
 INSERT INTO user_settings (user_id) 
 SELECT id FROM users;
+
+-- 如果 users 表還沒有這些欄位，請添加
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(255) DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20) DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS birthday DATE DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gender ENUM('male', 'female', 'other', 'prefer_not_to_say') DEFAULT 'prefer_not_to_say';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS location VARCHAR(100) DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS website VARCHAR(255) DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+
+-- 建立使用者統計表
+CREATE TABLE IF NOT EXISTS user_stats (
+  user_id INT PRIMARY KEY,
+  total_messages INT DEFAULT 0,
+  total_rooms_joined INT DEFAULT 0,
+  total_rooms_created INT DEFAULT 0,
+  last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 建立使用者設定表
+CREATE TABLE IF NOT EXISTS user_settings (
+  user_id INT PRIMARY KEY,
+  email_notifications BOOLEAN DEFAULT TRUE,
+  push_notifications BOOLEAN DEFAULT FALSE,
+  show_online_status BOOLEAN DEFAULT TRUE,
+  allow_private_messages BOOLEAN DEFAULT TRUE,
+  theme ENUM('light', 'dark', 'auto') DEFAULT 'light',
+  language VARCHAR(10) DEFAULT 'zh-TW',
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE user_deleted_messages (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  user_id INT NOT NULL,
+  message_id INT NOT NULL,
+  deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_user_message (user_id, message_id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (message_id) REFERENCES messages(id)
+);
