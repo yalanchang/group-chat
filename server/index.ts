@@ -3,8 +3,6 @@ import { createServer } from 'http'
 import { Server } from 'socket.io'
 import cors from 'cors'
 import dotenv from 'dotenv'
-import jwt from 'jsonwebtoken'
-import bcrypt from 'bcrypt'
 import path from 'path'
 
 dotenv.config()
@@ -44,11 +42,13 @@ app.use((req: any, res, next) => {
   req.io = io
   next()
 })
+app.use('/uploads', express.static('public/uploads'))
+
 app.use('/api/auth', authRouter)
 app.use('/api/messages', messageRouter)
 app.use('/api/rooms', roomRouter)
+
 app.use('/api/user', userProfileRoutes);
-app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 
 setupSocketHandlers(io)

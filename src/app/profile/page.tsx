@@ -91,6 +91,7 @@ export default function UserProfile() {
       
       if (response.ok) {
         const data = await response.json()
+        
         setProfile(data)
         setFormData({
           username: data.username || '',
@@ -326,7 +327,6 @@ export default function UserProfile() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-4 sm:py-8 px-3 sm:px-4">
       <div className="max-w-6xl mx-auto">
-        {/* 頭部 */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-8 mb-4 sm:mb-6">
           <div className="flex items-center justify-between mb-4 sm:mb-6">
             <h1 className="text-xl sm:text-3xl font-bold text-gray-900">會員中心</h1>
@@ -340,7 +340,6 @@ export default function UserProfile() {
             </button>
           </div>
           
-          {/* 使用者簡介 - RWD */}
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
             <div className="relative flex-shrink-0">
               <img

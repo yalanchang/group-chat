@@ -126,22 +126,32 @@ router.get('/profile', authenticateToken, async (req: any, res) => {
     
     const user = users[0];
     
+    const [messageCount] = await pool.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) as count FROM messages WHERE user_id = ?',
+      [userId]
+    );
+    
+    const [roomsJoined] = await pool.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) as count FROM room_members WHERE user_id = ?',
+      [userId]
+    );
+    
+    const [roomsCreated] = await pool.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) as count FROM rooms WHERE created_by = ?',
+      [userId]
+    );
+    
     const [settings] = await pool.execute<RowDataPacket[]>(
       'SELECT * FROM user_settings WHERE user_id = ?',
       [userId]
     );
     
-    const [stats] = await pool.execute<RowDataPacket[]>(
-      'SELECT * FROM user_stats WHERE user_id = ?',
-      [userId]
-    );
-    
     res.json({
       ...user,
-      total_messages: stats[0]?.total_messages ?? 0,
-      total_rooms_joined: stats[0]?.total_rooms_joined ?? 0,
-      total_rooms_created: stats[0]?.total_rooms_created ?? 0,
-      last_active: stats[0]?.last_active ?? null,
+      total_messages: messageCount[0]?.count ?? 0,
+      total_rooms_joined: roomsJoined[0]?.count ?? 0,
+      total_rooms_created: roomsCreated[0]?.count ?? 0,
+      last_active: user.updated_at,
       email_notifications: settings[0]?.email_notifications ?? true,
       push_notifications: settings[0]?.push_notifications ?? false,
       show_online_status: settings[0]?.show_online_status ?? true,
