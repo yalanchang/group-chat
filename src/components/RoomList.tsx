@@ -14,10 +14,11 @@ interface Room {
 
 interface RoomListProps {
   selectedRoom: string | null
-  onSelectRoom: (roomId: string) => void
+  onSelectRoom: (roomId: string | null) => void
+  onMenuClick?: () => void  
 }
 
-export default function RoomList({ selectedRoom, onSelectRoom }: RoomListProps) {
+export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: RoomListProps) {
   const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -109,9 +110,19 @@ export default function RoomList({ selectedRoom, onSelectRoom }: RoomListProps) 
 
   return (
     <>
-      <div className="w-80 h-full bg-gradient-to-b from-gray-50 to-white border-r border-gray-200 flex flex-col shadow-sm">
-        <div className="p-5 border-b border-gray-200 bg-white">
-          <div className="flex items-center justify-between mb-1">
+    <div className="w-full h-full bg-white border-r border-gray-200 flex flex-col">
+    <div className="p-5 border-b border-gray-200 bg-white">
+    <div className="px-4 py-4 border-b border-gray-200 flex items-center gap-3">
+    {onMenuClick && (
+          <button
+            onClick={onMenuClick}
+            className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        )}
             <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
 聊天室            </h2>
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>

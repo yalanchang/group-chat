@@ -14,6 +14,7 @@ export default function ChatPage() {
   const router = useRouter()
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -25,11 +26,21 @@ export default function ChatPage() {
     }
   }, [user, loading, router, mounted])
 
+  // 選擇房間時在手機上自動關閉側邊欄
+  const handleSelectRoom = (roomId: string | null) => {
+    setSelectedRoom(roomId)
+    setShowMobileSidebar(false)
+  }
+
+  // 手機版返回房間列表
+  const handleBackToRooms = () => {
+    setSelectedRoom(null)
+  }
+
   if (!mounted) {
     return null
   }
 
-  // Loading 狀態 - 更現代
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -57,26 +68,47 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-gray-100">
-      {/* 左側邊欄 */}
-      <div className="flex-shrink-0">
-        <Sidebar />
+      {/* 手機版 Overlay */}
+      {showMobileSidebar && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setShowMobileSidebar(false)}
+        />
+      )}
+
+      {/* Sidebar - 桌面版固定顯示，手機版滑出 */}
+      <div className={`
+        fixed lg:relative inset-y-0 left-0 z-50
+        transform transition-transform duration-300 ease-in-out
+        ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        <Sidebar onClose={() => setShowMobileSidebar(false)} />
       </div>
 
-      {/* 房間列表 */}
-      <div className="flex-shrink-0">
+      {/* RoomList - 桌面版固定顯示，手機版當沒選擇房間時顯示 */}
+      <div className={`
+        flex-shrink-0 w-full sm:w-80 lg:w-80
+        ${selectedRoom ? 'hidden lg:block' : 'block'}
+      `}>
         <RoomList 
           selectedRoom={selectedRoom} 
-          onSelectRoom={setSelectedRoom} 
+          onSelectRoom={handleSelectRoom}
+          onMenuClick={() => setShowMobileSidebar(true)}
         />
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* ChatArea - 桌面版固定顯示，手機版當選擇房間時顯示 */}
+      <div className={`
+        flex-1 flex flex-col min-w-0
+        ${selectedRoom ? 'block' : 'hidden lg:flex'}
+      `}>
         {selectedRoom ? (
-          <ChatArea roomId={selectedRoom} />
+          <ChatArea 
+            roomId={selectedRoom} 
+            onBack={handleBackToRooms}
+          />
         ) : (
           <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-50 relative overflow-hidden">
-        
-
             <div className="relative z-10 text-center px-6 max-w-2xl mx-auto">
               <div className="mb-8 relative">
                 <div className="w-32 h-32 mx-auto bg-gradient-to-br from-primary-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl transform hover:scale-110 transition-all duration-300 cursor-pointer">
@@ -95,60 +127,16 @@ export default function ChatPage() {
                 或創建一個新的聊天室與朋友交流
               </p>
 
-         
               <div className="mt-12 flex items-center justify-center gap-3 text-primary-600 animate-bounce">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
                 <span className="font-semibold text-lg">選擇聊天室開始</span>
               </div>
-
-           
             </div>
           </div>
         )}
       </div>
-
-      <style jsx>{`
-        @keyframes slide-in {
-          from {
-            transform: translateY(100px);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-
-        .animate-slide-in {
-          animation: slide-in 0.3s ease-out;
-        }
-      `}</style>
-    </div>
-  )
-}
-
-function FeatureCard({ 
-  icon, 
-  title, 
-  description 
-}: { 
-  icon: string
-  title: string
-  description: string
-}) {
-  return (
-    <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-2xl hover:border-primary-300 transition-all duration-300 hover:-translate-y-2 cursor-pointer">
-      <div className="text-4xl mb-3 transform group-hover:scale-110 transition-transform duration-300">
-        {icon}
-      </div>
-      <h3 className="font-bold text-gray-900 mb-2 text-lg">
-        {title}
-      </h3>
-      <p className="text-sm text-gray-600 leading-relaxed">
-        {description}
-      </p>
     </div>
   )
 }

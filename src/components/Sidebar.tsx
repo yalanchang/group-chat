@@ -4,7 +4,11 @@ import { useState } from 'react'
 import { useAuth } from '@/providers/AuthProvider'
 import { useSocket } from '@/providers/SocketProvider'
 
-export default function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void
+}
+
+export default function Sidebar({ onClose }: SidebarProps) {
   const { user, logout } = useAuth()
   const { connected } = useSocket()
   const [showMenu, setShowMenu] = useState(false)
@@ -12,7 +16,17 @@ export default function Sidebar() {
   
 
   return (
-    <aside className="w-20 min-h-screen bg-gradient-to-b from-gray-800 to-gray-900 flex flex-col items-center py-6 border-r border-gray-700 relative">
+   
+   <aside className="w-20 min-h-screen bg-gradient-to-b from-gray-800 to-gray-900 flex flex-col items-center py-6 border-r border-gray-700 relative">
+      
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="lg:hidden absolute top-4 right-4 p-2 text-gray-400 hover:text-white"
+        >
+        
+        </button>
+      )}
       <button
         type="button"
         aria-label="Home"
