@@ -101,61 +101,64 @@ const upload = multer({
 });
 
 
-router.get('/profile', authenticateToken, async  (req: any, res)  => {
+router.get('/profile', authenticateToken, async (req: any, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     
     if (!userId) {
       res.status(401).json({ message: '未授權' });
       return;
     }
     
-    const [users] = await pool.execute<UserProfile[]>(`
-      SELECT 
-        u.id,
-        u.username,
-        u.email,
-        u.avatar_url,
-        u.bio,
-        u.phone,
-        u.birthday,
-        u.gender,
-        u.location,
-        u.website,
-        u.created_at,
-        u.updated_at,
-        COALESCE(us.total_messages, 0) as total_messages,
-        COALESCE(us.total_rooms_joined, 0) as total_rooms_joined,
-        COALESCE(us.total_rooms_created, 0) as total_rooms_created,
-        us.last_active,
-        COALESCE(uset.email_notifications, TRUE) as email_notifications,
-        COALESCE(uset.push_notifications, FALSE) as push_notifications,
-        COALESCE(uset.show_online_status, TRUE) as show_online_status,
-        COALESCE(uset.allow_private_messages, TRUE) as allow_private_messages,
-        COALESCE(uset.theme, 'light') as theme,
-        COALESCE(uset.language, 'zh-TW') as language
-      FROM users u
-      LEFT JOIN user_stats us ON u.id = us.user_id
-      LEFT JOIN user_settings uset ON u.id = uset.user_id
-      WHERE u.id = ?
-    `, [userId]);
+    const [users] = await pool.execute<RowDataPacket[]>(
+      `SELECT 
+        id, username, email, avatar_url, bio, phone, 
+        birthday, gender, location, website, 
+        created_at, updated_at 
+       FROM users WHERE id = ?`,
+      [userId]
+    );
     
     if (users.length === 0) {
       res.status(404).json({ message: '使用者不存在' });
       return;
     }
     
-    const { password, ...userWithoutPassword } = users[0];
-    res.json(userWithoutPassword);
+    const user = users[0];
+    
+    const [settings] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM user_settings WHERE user_id = ?',
+      [userId]
+    );
+    
+    const [stats] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM user_stats WHERE user_id = ?',
+      [userId]
+    );
+    
+    res.json({
+      ...user,
+      total_messages: stats[0]?.total_messages ?? 0,
+      total_rooms_joined: stats[0]?.total_rooms_joined ?? 0,
+      total_rooms_created: stats[0]?.total_rooms_created ?? 0,
+      last_active: stats[0]?.last_active ?? null,
+      email_notifications: settings[0]?.email_notifications ?? true,
+      push_notifications: settings[0]?.push_notifications ?? false,
+      show_online_status: settings[0]?.show_online_status ?? true,
+      allow_private_messages: settings[0]?.allow_private_messages ?? true,
+      theme: settings[0]?.theme ?? 'light',
+      language: settings[0]?.language ?? 'zh-TW'
+    });
+    
   } catch (error) {
-    console.error('獲取使用者資料錯誤:', error);
+    console.error('❌ 獲取使用者資料錯誤:', error);
     res.status(500).json({ message: '伺服器錯誤' });
   }
 });
 
-router.put('/profile', authenticateToken, async (req: any, res)  => {
+router.put('/profile', authenticateToken, async (req: any, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     
     if (!userId) {
       res.status(401).json({ message: '未授權' });
@@ -170,7 +173,14 @@ router.put('/profile', authenticateToken, async (req: any, res)  => {
       gender, 
       location, 
       website 
-    }: UpdateProfileBody = req.body;
+    } = req.body;
+    
+    const sanitizedBirthday = birthday || null;
+    const sanitizedPhone = phone || null;
+    const sanitizedBio = bio || null;
+    const sanitizedLocation = location || null;
+    const sanitizedWebsite = website || null;
+    const sanitizedGender = gender || null;
     
     if (username) {
       const [existing] = await pool.execute<RowDataPacket[]>(
@@ -196,7 +206,16 @@ router.put('/profile', authenticateToken, async (req: any, res)  => {
         website = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `, [username, bio, phone, birthday, gender, location, website, userId]);
+    `, [
+      username, 
+      sanitizedBio, 
+      sanitizedPhone, 
+      sanitizedBirthday,  
+      sanitizedGender, 
+      sanitizedLocation, 
+      sanitizedWebsite, 
+      userId
+    ]);
     
     res.json({ message: '資料更新成功' });
   } catch (error) {

@@ -27,11 +27,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
+    
     const checkAuth = () => {
       try {
         
         const savedToken = localStorage.getItem('token')
         const savedUser = localStorage.getItem('user')
+        
         
         if (savedToken && savedUser) {
           try {

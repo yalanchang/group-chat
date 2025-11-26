@@ -31,7 +31,7 @@ const io = new Server(server, {
 
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
-  methods: ['GET','POST','OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE',  'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }))

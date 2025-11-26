@@ -13,9 +13,14 @@ export const authenticateToken = (req: any, res: Response, next: NextFunction) =
   }
 
   try {
+    
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+    req.user = {
+      id: decoded.userId || decoded.id,  
+      username: decoded.username,
+      ...decoded
+    }
     req.userId = decoded.userId || decoded.id
-    req.user = decoded
     next()
   } catch (error) {
     console.error('Token verification failed:', error)

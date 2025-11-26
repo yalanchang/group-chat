@@ -300,6 +300,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+
 CREATE TABLE user_deleted_messages (
   id INT PRIMARY KEY AUTO_INCREMENT,
   user_id INT NOT NULL,
