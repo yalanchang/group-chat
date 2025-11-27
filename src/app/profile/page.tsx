@@ -31,6 +31,25 @@ interface UserProfile {
   language: string
 }
 
+interface JoinRequest {
+  id: number
+  room_id: number
+  room_name: string
+  user_id: number
+  message: string | null
+  status: string
+  created_at: string
+  username: string
+  avatar_url: string | null
+}
+
+interface ManagedRoom {
+  id: number
+  name: string
+  is_private: boolean
+  pending_count: number
+}
+
 export default function UserProfile() {
   const { theme, setTheme } = useTheme()  
   const router = useRouter()
@@ -66,11 +85,18 @@ export default function UserProfile() {
     confirmPassword: ''
   })
 
-const [showPassword, setShowPassword] = useState({
-  current: false,
-  new: false,
-  confirm: false
-})
+  const [showPassword, setShowPassword] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  })
+
+  // 審核管理相關狀態
+  const [managedRooms, setManagedRooms] = useState<ManagedRoom[]>([])
+  const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null)
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([])
+  const [requestsLoading, setRequestsLoading] = useState(false)
+  const [processingId, setProcessingId] = useState<number | null>(null)
   
   useEffect(() => {
     if (authLoading) return
@@ -82,6 +108,18 @@ const [showPassword, setShowPassword] = useState({
     
     fetchProfile()
   }, [authLoading, token])  
+
+  useEffect(() => {
+    if (activeTab === 'requests' && token) {
+      fetchManagedRooms()
+    }
+  }, [activeTab, token])
+
+  useEffect(() => {
+    if (selectedRoomId) {
+      fetchJoinRequests(selectedRoomId)
+    }
+  }, [selectedRoomId])
   
   const fetchProfile = async () => {
     try {
@@ -137,6 +175,138 @@ const [showPassword, setShowPassword] = useState({
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchManagedRooms = async () => {
+    try {
+      setRequestsLoading(true)
+      const response = await fetch('http://localhost:3001/api/user/managed-rooms', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setManagedRooms(data)
+        if (data.length > 0 && !selectedRoomId) {
+          setSelectedRoomId(data[0].id)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching managed rooms:', error)
+    } finally {
+      setRequestsLoading(false)
+    }
+  }
+
+  const fetchJoinRequests = async (roomId: number) => {
+    try {
+      setRequestsLoading(true)
+      const response = await fetch(`http://localhost:3001/api/rooms/${roomId}/requests`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setJoinRequests(data)
+      } else {
+        setJoinRequests([])
+      }
+    } catch (error) {
+      console.error('Error fetching join requests:', error)
+      setJoinRequests([])
+    } finally {
+      setRequestsLoading(false)
+    }
+  }
+
+  const handleApprove = async (requestId: number) => {
+    if (!selectedRoomId) return
+
+    try {
+      setProcessingId(requestId)
+      const response = await fetch(
+        `http://localhost:3001/api/rooms/${selectedRoomId}/requests/${requestId}/approve`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      )
+
+      if (response.ok) {
+        showMessage('success', '已批准加入申請')
+        setJoinRequests(joinRequests.filter(r => r.id !== requestId))
+        // 更新房間的待審核數量
+        setManagedRooms(managedRooms.map(room => 
+          room.id === selectedRoomId 
+            ? { ...room, pending_count: Math.max(0, room.pending_count - 1) }
+            : room
+        ))
+      } else {
+        const errorData = await response.json()
+        showMessage('error', errorData.message || '操作失敗')
+      }
+    } catch (error) {
+      console.error('Error approving request:', error)
+      showMessage('error', '操作失敗')
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleReject = async (requestId: number) => {
+    if (!selectedRoomId) return
+    if (!confirm('確定要拒絕此申請嗎？')) return
+
+    try {
+      setProcessingId(requestId)
+      const response = await fetch(
+        `http://localhost:3001/api/rooms/${selectedRoomId}/requests/${requestId}/reject`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      )
+
+      if (response.ok) {
+        showMessage('success', '已拒絕加入申請')
+        setJoinRequests(joinRequests.filter(r => r.id !== requestId))
+        setManagedRooms(managedRooms.map(room => 
+          room.id === selectedRoomId 
+            ? { ...room, pending_count: Math.max(0, room.pending_count - 1) }
+            : room
+        ))
+      } else {
+        const errorData = await response.json()
+        showMessage('error', errorData.message || '操作失敗')
+      }
+    } catch (error) {
+      console.error('Error rejecting request:', error)
+      showMessage('error', '操作失敗')
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('zh-TW', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const getTotalPendingCount = () => {
+    return managedRooms.reduce((sum, room) => sum + room.pending_count, 0)
   }
   
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -404,11 +574,11 @@ const [showPassword, setShowPassword] = useState({
         <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-lg overflow-hidden">
         <div className="border-b border-gray-200 dark:border-gray-700">
             <div className="flex">
-              {['profile', 'settings', 'security'].map((tab) => (
+              {['profile', 'settings', 'security', 'requests'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`flex-1 px-2 sm:px-6 py-3 sm:py-4 text-center text-xs sm:text-base font-semibold transition-colors ${
+                  className={`flex-1 px-2 sm:px-6 py-3 sm:py-4 text-center text-xs sm:text-base font-semibold transition-colors relative ${
                     activeTab === tab
                       ? 'text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400 bg-primary-50 dark:bg-primary-900/20'
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -417,6 +587,16 @@ const [showPassword, setShowPassword] = useState({
                   {tab === 'profile' && '個人資料'}
                   {tab === 'settings' && '偏好設定'}
                   {tab === 'security' && '帳號安全'}
+                  {tab === 'requests' && (
+                    <span className="flex items-center justify-center gap-1">
+                      審核管理
+                      {getTotalPendingCount() > 0 && (
+                        <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px]">
+                          {getTotalPendingCount()}
+                        </span>
+                      )}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -629,127 +809,261 @@ const [showPassword, setShowPassword] = useState({
             )}
             
             {activeTab === 'security' && (
-  <div className="space-y-6 sm:space-y-8">
-    <div>
-    <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">更改密碼</h3>
-    <form onSubmit={handleChangePassword} className="space-y-3 sm:space-y-4">
-        <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
-        當前密碼
-          </label>
-          <div className="relative">
-            <input
-              type={showPassword.current ? 'text' : 'password'}
-              value={passwordData.currentPassword}
-              onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-              className="w-full px-3 sm:px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword({ ...showPassword, current: !showPassword.current })}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-              >
-              {showPassword.current ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
-        
-        <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
-        新密碼
-          </label>
-          <div className="relative">
-            <input
-              type={showPassword.new ? 'text' : 'password'}
-              value={passwordData.newPassword}
-              onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-              className="w-full px-3 sm:px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword({ ...showPassword, new: !showPassword.new })}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-            >
-              {showPassword.new ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
-        
-        <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
-        確認新密碼
-          </label>
-          <div className="relative">
-            <input
-              type={showPassword.confirm ? 'text' : 'password'}
-              value={passwordData.confirmPassword}
-              onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-              className="w-full px-3 sm:px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword({ ...showPassword, confirm: !showPassword.confirm })}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-            >
-              {showPassword.confirm ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
-        
-        <button
-          type="submit"
-          className="w-full px-6 py-2.5 sm:py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-semibold transition-colors text-sm sm:text-base"
-        >
-          更新密碼
-        </button>
-      </form>
-    </div>
-    
-    <div className="pt-6 sm:pt-8 border-t border-gray-200 dark:border-gray-700">
-    <div className="p-3 sm:p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-    <button
-          onClick={handleDeleteAccount}
-          className="w-full sm:w-auto px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors text-sm sm:text-base"
-        >
-          永久刪除帳號
-        </button>
-        <p className="text-gray-700 dark:text-gray-300 mt-4 text-sm sm:text-base">
-        刪除帳號後，您的所有資料將被永久刪除，此操作無法復原。
-        </p>
-      </div>
-    </div>
-  </div>
-)}
+              <div className="space-y-6 sm:space-y-8">
+                <div>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">更改密碼</h3>
+                <form onSubmit={handleChangePassword} className="space-y-3 sm:space-y-4">
+                    <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
+                    當前密碼
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword.current ? 'text' : 'password'}
+                          value={passwordData.currentPassword}
+                          onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                          className="w-full px-3 sm:px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword({ ...showPassword, current: !showPassword.current })}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                          >
+                          {showPassword.current ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
+                    新密碼
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword.new ? 'text' : 'password'}
+                          value={passwordData.newPassword}
+                          onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                          className="w-full px-3 sm:px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword({ ...showPassword, new: !showPassword.new })}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                          {showPassword.new ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
+                    確認新密碼
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword.confirm ? 'text' : 'password'}
+                          value={passwordData.confirmPassword}
+                          onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                          className="w-full px-3 sm:px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword({ ...showPassword, confirm: !showPassword.confirm })}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                          {showPassword.confirm ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <button
+                      type="submit"
+                      className="w-full px-6 py-2.5 sm:py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-semibold transition-colors text-sm sm:text-base"
+                    >
+                      更新密碼
+                    </button>
+                  </form>
+                </div>
+                
+                <div className="pt-6 sm:pt-8 border-t border-gray-200 dark:border-gray-700">
+                <div className="p-3 sm:p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <button
+                      onClick={handleDeleteAccount}
+                      className="w-full sm:w-auto px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors text-sm sm:text-base"
+                    >
+                      永久刪除帳號
+                    </button>
+                    <p className="text-gray-700 dark:text-gray-300 mt-4 text-sm sm:text-base">
+                    刪除帳號後，您的所有資料將被永久刪除，此操作無法復原。
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'requests' && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
+                    審核加入申請
+                  </h3>
+                  {managedRooms.length > 0 && (
+                    <select
+                      value={selectedRoomId || ''}
+                      onChange={(e) => setSelectedRoomId(Number(e.target.value))}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    >
+                      {managedRooms.map((room) => (
+                        <option key={room.id} value={room.id}>
+                          {room.name} {room.pending_count > 0 && `(${room.pending_count})`}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {requestsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary-600 border-t-transparent"></div>
+                  </div>
+                ) : managedRooms.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">您沒有管理任何房間</p>
+                    <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">創建私密房間後即可在此管理加入申請</p>
+                  </div>
+                ) : joinRequests.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">目前沒有待審核的申請</p>
+                    <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">所有申請都已處理完畢</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {joinRequests.map((request) => (
+                      <div
+                        key={request.id}
+                        className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-4 sm:p-5"
+                      >
+                        <div className="flex items-start gap-4">
+                          {/* 頭像 */}
+                          <div className="flex-shrink-0">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-lg">
+                              {request.avatar_url ? (
+                                <img
+                                  src={`http://localhost:3001${request.avatar_url}`}
+                                  alt={request.username}
+                                  className="w-full h-full rounded-full object-cover"
+                                />
+                              ) : (
+                                request.username.charAt(0).toUpperCase()
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 資訊 */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                              <div>
+                                <p className="font-semibold text-gray-900 dark:text-white text-base">
+                                  {request.username}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {formatDate(request.created_at)}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* 申請訊息 */}
+                            {request.message && (
+                              <div className="mt-3 p-3 bg-white dark:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-500">
+                                <p className="text-sm text-gray-600 dark:text-gray-300 italic">
+                                  "{request.message}"
+                                </p>
+                              </div>
+                            )}
+
+                            {/* 按鈕 */}
+                            <div className="flex gap-3 mt-4">
+                              <button
+                                onClick={() => handleApprove(request.id)}
+                                disabled={processingId === request.id}
+                                className="flex-1 sm:flex-none bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                              >
+                                {processingId === request.id ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                ) : (
+                                  <>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    批准
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleReject(request.id)}
+                                disabled={processingId === request.id}
+                                className="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                              >
+                                {processingId === request.id ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                ) : (
+                                  <>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    拒絕
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

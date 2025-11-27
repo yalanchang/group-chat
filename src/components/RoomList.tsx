@@ -48,6 +48,7 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
 
         if (Array.isArray(data)) {
           setRooms(data)
+
         } else if (data.rooms && Array.isArray(data.rooms)) {
           setRooms(data.rooms)
         } else {
@@ -165,7 +166,7 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
               </button>
             )}
             <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              聊天室            </h2>
+              聊天室</h2>
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
           </div>
           <p className="text-xs text-gray-500 mt-1">
@@ -173,7 +174,6 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
           </p>
         </div>
 
-        {/* 房間列表 */}
         <div className="flex-1 overflow-y-auto p-3">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12">
@@ -181,7 +181,7 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary-200"></div>
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary-600 border-t-transparent absolute top-0 left-0"></div>
               </div>
-              <p className="mt-4 text-sm text-gray-500 font-medium">Loading rooms...</p>
+              <p className="mt-4 text-sm text-gray-500 font-medium">Loading...</p>
             </div>
           ) : error ? (
             <div className="p-4">
@@ -208,7 +208,7 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
                 onClick={() => setShowCreateModal(true)}
                 className="text-sm text-primary-600 hover:text-primary-700 font-semibold"
               >
-                創建房間              </button>
+                創建房間</button>
             </div>
           ) : (
             <div className="space-y-2 ">
@@ -233,8 +233,7 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
                             }`}>
                             {room.name}
                           </h3>
-
-                          {room.is_private && (
+                          {!!!!room.is_private && (
                             <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${selectedRoom === room.id.toString()
                               ? 'bg-white/20 text-white'
                               : 'bg-gray-100 text-gray-600'
@@ -252,9 +251,8 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
                             {room.description}
                           </p>
                         )}
-
                         <div className="flex items-center gap-2">
-                          {room.is_member && (
+                          {!!room.is_member && (
                             <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${selectedRoom === room.id.toString()
                               ? 'bg-white/20 text-white'
                               : 'bg-green-100 text-green-700'
@@ -265,17 +263,12 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
                               已加入
                             </span>
                           )}
-                          {!room.is_member && room.request_status === 'pending' && (
+                          {  !!!room.is_member && room.request_status === 'pending' && (
                             <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700">
-                              <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
                               申請中
                             </span>
                           )}
-
-                          {!room.is_private && room.is_member && (
+                          {!!!room.is_private && (
                             <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-blue-100 text-blue-700">
                               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
@@ -283,7 +276,6 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
                               公開
                             </span>
                           )}
-
                           {room.creator_name && (
                             <span className={`text-xs ${selectedRoom === room.id.toString()
                               ? 'text-white/60'
@@ -310,7 +302,7 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
                       )}
                     </div>
                   </button>
-                  {!room.is_member && selectedRoom !== room.id.toString() && (
+                  {!!!room.is_member && selectedRoom !== room.id.toString() ? (
                     <div className="absolute top-2 right-2">
                       {room.is_private ? (
                         room.request_status === 'pending' ? (
@@ -324,9 +316,7 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
                             className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-1"
                           >
                             {requestingRoomId === room.id ? (
-                              <>
-                                申請中...
-                              </>
+                              <>申請中...</>
                             ) : (
                               <>
                                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -343,26 +333,14 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
                           disabled={joiningRoomId === room.id}
                           className="bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                         >
-                          {joiningRoomId === room.id ? (
-                            <>
-                              <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              加入中...
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
-                              </svg>
-                              加入
-                            </>
-                          )}
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
+                          </svg>
+                          加入
                         </button>
                       )}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               ))}
             </div>

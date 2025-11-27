@@ -54,12 +54,10 @@ export default function MessageInput({
       startTyping(roomId)
     }
 
-    // Clear existing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current)
     }
 
-    // Set new timeout to stop typing after 2 seconds of inactivity
     typingTimeoutRef.current = setTimeout(() => {
       handleStopTyping()
     }, 2000)
@@ -131,7 +129,6 @@ export default function MessageInput({
             }}
           />
 
-          {/* Emoji button */}
           <button
             type="button"
             className="absolute right-3 bottom-3 text-gray-400 hover:text-gray-600"

@@ -24,7 +24,6 @@ export default function CreateRoomModal({ onClose, onRoomCreated }: CreateRoomMo
     try {
       const token = localStorage.getItem('token')
       
-      console.log('🚀 Creating room:', formData)
 
       const response = await fetch('http://localhost:3001/api/rooms', {
         method: 'POST',

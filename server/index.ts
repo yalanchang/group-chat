@@ -11,7 +11,6 @@ import authRouter from './routes/auth'
 import messageRouter from './routes/messages'
 import roomRouter from './routes/rooms'
 import userProfileRoutes from './routes/profile';
-
 import { setupSocketHandlers } from './socket/socketHandlers'
 import pool from './database/connection'
 
@@ -47,7 +46,6 @@ app.use('/uploads', express.static('public/uploads'))
 app.use('/api/auth', authRouter)
 app.use('/api/messages', messageRouter)
 app.use('/api/rooms', roomRouter)
-
 app.use('/api/user', userProfileRoutes);
 
 

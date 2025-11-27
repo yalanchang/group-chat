@@ -111,7 +111,6 @@ router.get('/:roomId', authenticateToken, async (req: any, res) => {
     try {
       console.log('Fetching room info for room:', roomId)
   
-      // 檢查用戶是否為成員
       const [members] = await pool.execute<RowDataPacket[]>(
         'SELECT * FROM room_members WHERE room_id = ? AND user_id = ?',
         [roomId, req.userId]
@@ -443,7 +442,7 @@ router.delete('/:roomId/members/:userId', authenticateToken, async (req: any, re
 // 申請加入私密房間
 router.post('/:roomId/request', authenticateToken, async (req: any, res) => {
   const { roomId } = req.params
-  const { message } = req.body  // 可選的申請訊息
+  const { message } = req.body 
 
   try {
     // 檢查房間是否存在且為私密
@@ -661,5 +660,7 @@ router.get('/:roomId/request/status', authenticateToken, async (req: any, res) =
     res.status(500).json({ message: '伺服器錯誤' })
   }
 })
+
+
 
 export default router

@@ -441,4 +441,27 @@ router.delete('/account', authenticateToken, async (req: any, res)  => {
   }
 });
 
+router.get('/managed-rooms', authenticateToken, async (req: any, res) => {
+  try {
+    const [rooms] = await pool.execute<RowDataPacket[]>(
+      `SELECT 
+        r.id,
+        r.name,
+        r.is_private,
+        (SELECT COUNT(*) FROM room_join_requests 
+         WHERE room_id = r.id AND status = 'pending') as pending_count
+       FROM rooms r
+       INNER JOIN room_members rm ON r.id = rm.room_id
+       WHERE rm.user_id = ? AND rm.role IN ('admin', 'moderator')
+       ORDER BY pending_count DESC, r.name ASC`,
+      [req.userId]
+    )
+
+    res.json(rooms)
+  } catch (error) {
+    console.error('Error fetching managed rooms:', error)
+    res.status(500).json({ message: '伺服器錯誤' })
+  }
+})
+
 export default router;
