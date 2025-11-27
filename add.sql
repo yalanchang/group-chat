@@ -314,3 +314,19 @@ CREATE TABLE user_deleted_messages (
   FOREIGN KEY (message_id) REFERENCES messages(id)
 );
 
+CREATE TABLE room_join_requests (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  room_id INT NOT NULL,
+  user_id INT NOT NULL,
+  message TEXT,  -- 申請訊息（可選）
+  status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+  reviewed_by INT,  -- 審核者
+  reviewed_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+  UNIQUE KEY unique_request (room_id, user_id, status)  -- 防止重複申請
+);
+

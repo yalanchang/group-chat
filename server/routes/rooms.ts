@@ -6,40 +6,35 @@ import { authenticateToken } from '../middleware/auth'
 const router = Router()
 
 router.get('/', authenticateToken, async (req: any, res) => {
-    try {
-  
-      const query = `SELECT DISTINCT
-        r.id,
-        r.name,
-        r.description,
-        r.created_by,
-        r.created_at,
-        r.updated_at,
-        u.username as creator_name,
-        CASE 
-          WHEN rm.user_id IS NOT NULL THEN 1 
-          ELSE 0 
-        END as member
-       FROM rooms r
-       LEFT JOIN users u ON r.created_by = u.id
-       LEFT JOIN room_members rm ON r.id = rm.room_id AND rm.user_id = ?
-       ORDER BY r.updated_at DESC, r.created_at DESC`
-  
-  
-      const [rooms] = await pool.execute<RowDataPacket[]>(query, [req.userId])
-        
-      res.json(rooms)
-    } catch (error: any) {
-      console.error('❌ Error fetching rooms:')
-      console.error('Error message:', error.message)
-      console.error('Error code:', error.code)
-      console.error('Error stack:', error.stack)
-      res.status(500).json({ 
-        message: 'Internal server error',
-        error: error.message
-      })
-    }
-  })
+  try {
+    const query = `SELECT DISTINCT
+      r.id,
+      r.name,
+      r.description,
+      r.is_private,
+      r.created_by,
+      r.created_at,
+      r.updated_at,
+      u.username as creator_name,
+      CASE 
+        WHEN rm.user_id IS NOT NULL THEN 1 
+        ELSE 0 
+      END as is_member,
+      (SELECT status FROM room_join_requests 
+       WHERE room_id = r.id AND user_id = ? AND status = 'pending' 
+       LIMIT 1) as request_status
+     FROM rooms r
+     LEFT JOIN users u ON r.created_by = u.id
+     LEFT JOIN room_members rm ON r.id = rm.room_id AND rm.user_id = ?
+     ORDER BY r.updated_at DESC`
+
+    const [rooms] = await pool.execute<RowDataPacket[]>(query, [req.userId, req.userId])
+    res.json(rooms)
+  } catch (error) {
+    console.error('Error fetching rooms:', error)
+    res.status(500).json({ message: 'Internal server error' })
+  }
+})
 
 
   router.post('/', authenticateToken, async (req: any, res) => {
@@ -288,7 +283,7 @@ router.post('/:roomId/join', authenticateToken, async (req: any, res) => {
       }
   
       if (room.is_private) {
-        return res.status(403).json({ message: 'Cannot join private room' })
+        return res.status(403).json({ message: '無法進入私密房間' })
       }
   
       await pool.execute(
@@ -298,7 +293,7 @@ router.post('/:roomId/join', authenticateToken, async (req: any, res) => {
   
   
       res.json({ 
-        message: 'Successfully joined room',
+        message: '成功進入房間',
         room: {
           id: room.id,
           name: room.name
@@ -442,6 +437,228 @@ router.delete('/:roomId/members/:userId', authenticateToken, async (req: any, re
   } catch (error) {
     console.error('Error removing member:', error)
     res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+// 申請加入私密房間
+router.post('/:roomId/request', authenticateToken, async (req: any, res) => {
+  const { roomId } = req.params
+  const { message } = req.body  // 可選的申請訊息
+
+  try {
+    // 檢查房間是否存在且為私密
+    const [rooms] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM rooms WHERE id = ?',
+      [roomId]
+    )
+
+    if (rooms.length === 0) {
+      return res.status(404).json({ message: '房間不存在' })
+    }
+
+    const room = rooms[0]
+
+    if (!room.is_private) {
+      return res.status(400).json({ message: '公開房間可直接加入，無需申請' })
+    }
+
+    // 檢查是否已經是成員
+    const [members] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM room_members WHERE room_id = ? AND user_id = ?',
+      [roomId, req.userId]
+    )
+
+    if (members.length > 0) {
+      return res.status(400).json({ message: '您已經是此房間的成員' })
+    }
+
+    // 檢查是否已有待審核的申請
+    const [existingRequests] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM room_join_requests WHERE room_id = ? AND user_id = ? AND status = ?',
+      [roomId, req.userId, 'pending']
+    )
+
+    if (existingRequests.length > 0) {
+      return res.status(400).json({ message: '您已有待審核的申請' })
+    }
+
+    // 建立申請
+    await pool.execute(
+      'INSERT INTO room_join_requests (room_id, user_id, message) VALUES (?, ?, ?)',
+      [roomId, req.userId, message || null]
+    )
+
+    res.status(201).json({ message: '申請已送出，請等待管理員審核' })
+
+  } catch (error) {
+    console.error('Error requesting to join room:', error)
+    res.status(500).json({ message: '伺服器錯誤' })
+  }
+})
+
+// 獲取房間的加入申請列表（僅管理員）
+router.get('/:roomId/requests', authenticateToken, async (req: any, res) => {
+  const { roomId } = req.params
+
+  try {
+    // 檢查是否為管理員
+    const [members] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM room_members WHERE room_id = ? AND user_id = ? AND role IN (?, ?)',
+      [roomId, req.userId, 'admin', 'moderator']
+    )
+
+    if (members.length === 0) {
+      return res.status(403).json({ message: '只有管理員可以查看申請' })
+    }
+
+    // 獲取待審核的申請
+    const [requests] = await pool.execute<RowDataPacket[]>(
+      `SELECT 
+        r.id,
+        r.room_id,
+        r.user_id,
+        r.message,
+        r.status,
+        r.created_at,
+        u.username,
+        u.avatar_url
+       FROM room_join_requests r
+       JOIN users u ON r.user_id = u.id
+       WHERE r.room_id = ? AND r.status = ?
+       ORDER BY r.created_at ASC`,
+      [roomId, 'pending']
+    )
+
+    res.json(requests)
+
+  } catch (error) {
+    console.error('Error fetching join requests:', error)
+    res.status(500).json({ message: '伺服器錯誤' })
+  }
+})
+
+// 批准申請
+router.post('/:roomId/requests/:requestId/approve', authenticateToken, async (req: any, res) => {
+  const { roomId, requestId } = req.params
+
+  try {
+    // 檢查是否為管理員
+    const [members] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM room_members WHERE room_id = ? AND user_id = ? AND role IN (?, ?)',
+      [roomId, req.userId, 'admin', 'moderator']
+    )
+
+    if (members.length === 0) {
+      return res.status(403).json({ message: '只有管理員可以審核申請' })
+    }
+
+    // 獲取申請資訊
+    const [requests] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM room_join_requests WHERE id = ? AND room_id = ? AND status = ?',
+      [requestId, roomId, 'pending']
+    )
+
+    if (requests.length === 0) {
+      return res.status(404).json({ message: '申請不存在或已處理' })
+    }
+
+    const request = requests[0]
+
+    const connection = await pool.getConnection()
+    await connection.beginTransaction()
+
+    try {
+      // 更新申請狀態
+      await connection.execute(
+        'UPDATE room_join_requests SET status = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?',
+        ['approved', req.userId, requestId]
+      )
+
+      // 加入成員
+      await connection.execute(
+        'INSERT INTO room_members (room_id, user_id, role) VALUES (?, ?, ?)',
+        [roomId, request.user_id, 'member']
+      )
+
+      // 發送系統訊息
+      const [users] = await connection.execute<RowDataPacket[]>(
+        'SELECT username FROM users WHERE id = ?',
+        [request.user_id]
+      )
+
+      await connection.execute(
+        'INSERT INTO messages (room_id, user_id, content, type) VALUES (?, ?, ?, ?)',
+        [roomId, request.user_id, `${users[0]?.username} joined the room`, 'system']
+      )
+
+      await connection.commit()
+
+      res.json({ message: '已批准加入申請' })
+
+    } catch (error) {
+      await connection.rollback()
+      throw error
+    } finally {
+      connection.release()
+    }
+
+  } catch (error) {
+    console.error('Error approving request:', error)
+    res.status(500).json({ message: '伺服器錯誤' })
+  }
+})
+
+// 拒絕申請
+router.post('/:roomId/requests/:requestId/reject', authenticateToken, async (req: any, res) => {
+  const { roomId, requestId } = req.params
+
+  try {
+    // 檢查是否為管理員
+    const [members] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM room_members WHERE room_id = ? AND user_id = ? AND role IN (?, ?)',
+      [roomId, req.userId, 'admin', 'moderator']
+    )
+
+    if (members.length === 0) {
+      return res.status(403).json({ message: '只有管理員可以審核申請' })
+    }
+
+    // 更新申請狀態
+    const [result] = await pool.execute<ResultSetHeader>(
+      'UPDATE room_join_requests SET status = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ? AND room_id = ? AND status = ?',
+      ['rejected', req.userId, requestId, roomId, 'pending']
+    )
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: '申請不存在或已處理' })
+    }
+
+    res.json({ message: '已拒絕加入申請' })
+
+  } catch (error) {
+    console.error('Error rejecting request:', error)
+    res.status(500).json({ message: '伺服器錯誤' })
+  }
+})
+
+router.get('/:roomId/request/status', authenticateToken, async (req: any, res) => {
+  const { roomId } = req.params
+
+  try {
+    const [requests] = await pool.execute<RowDataPacket[]>(
+      'SELECT status, created_at FROM room_join_requests WHERE room_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1',
+      [roomId, req.userId]
+    )
+
+    if (requests.length === 0) {
+      return res.json({ status: null })
+    }
+
+    res.json({ status: requests[0].status, created_at: requests[0].created_at })
+
+  } catch (error) {
+    console.error('Error checking request status:', error)
+    res.status(500).json({ message: '伺服器錯誤' })
   }
 })
 
