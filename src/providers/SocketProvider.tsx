@@ -1,12 +1,14 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useAuth } from './AuthProvider'
 
 interface SocketContextType {
   socket: Socket | null
   connected: boolean
+  startTyping: (roomId: string) => void
+  stopTyping: (roomId: string) => void
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined)
@@ -33,12 +35,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       reconnectionDelay: 1000,
     })
 
-    // 連接成功
     newSocket.on('connect', () => {
       setConnected(true)
     })
 
-    // 連接失敗
     newSocket.on('connect_error', (error) => {
       console.error('❌ SocketProvider: Connection error:', error.message)
       setConnected(false)
@@ -68,14 +68,21 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
   }, [user])
 
-  console.log('SocketProvider render:', { 
-    hasSocket: !!socket, 
-    connected,
-    hasUser: !!user 
-  })
+const startTyping = useCallback((roomId: string) => {
+  if (socket && connected) {
+    socket.emit('typing', { roomId, isTyping: true })
+  }
+}, [socket, connected])
+
+const stopTyping = useCallback((roomId: string) => {
+  if (socket && connected) {
+    socket.emit('typing', { roomId, isTyping: false })
+  }
+}, [socket, connected])
+
 
   return (
-    <SocketContext.Provider value={{ socket, connected }}>
+    <SocketContext.Provider value={{ socket, connected, startTyping, stopTyping }}>
       {children}
     </SocketContext.Provider>
   )

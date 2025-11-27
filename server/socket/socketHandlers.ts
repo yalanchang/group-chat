@@ -50,9 +50,7 @@ export function setupSocketHandlers(io: Server) {
   })
 
   io.on('connection', async (socket: AuthenticatedSocket) => {
-    console.log(`👤 User connected: ${socket.username} (ID: ${socket.userId})`)
 
-    // 獲取用戶的所有聊天室
     try {
       const [rooms] = await pool.execute<RowDataPacket[]>(
         `SELECT r.* FROM rooms r
@@ -120,11 +118,9 @@ socket.on('join-room', async (roomId: number) => {
       }
     }
 
-    // 加入 Socket.IO 房間
     socket.join(`room-${roomId}`)
     console.log(`✅ ${socket.username} joined room-${roomId}`)
     
-    // 通知其他人
     socket.to(`room-${roomId}`).emit('user-joined', {
       userId: socket.userId,
       username: socket.username,
@@ -137,7 +133,6 @@ socket.on('join-room', async (roomId: number) => {
   }
 })
 
-    // 發送訊息
     socket.on('send-message', async (data: SendMessageData) => {
       const { roomId, content, type = 'text', fileUrl } = data
 
@@ -197,7 +192,6 @@ socket.on('join-room', async (roomId: number) => {
       }
     })
 
-    // 輸入狀態
     socket.on('typing', (data: TypingData) => {
       const { roomId, isTyping } = data
       
@@ -209,31 +203,29 @@ socket.on('join-room', async (roomId: number) => {
       })
     })
 
-    // 編輯訊息
     socket.on('edit-message', async (data: { messageId: number; content: string }) => {
+      
       const { messageId, content } = data
-
+    
       try {
-        // 檢查訊息擁有者
         const [messages] = await pool.execute<RowDataPacket[]>(
           'SELECT * FROM messages WHERE id = ? AND user_id = ?',
           [messageId, socket.userId]
         )
-
+    
+    
         if (messages.length === 0) {
           socket.emit('error', { message: 'Message not found or unauthorized' })
           return
         }
-
-        // 更新訊息
+    
         await pool.execute(
           'UPDATE messages SET content = ?, is_edited = TRUE WHERE id = ?',
           [content, messageId]
         )
-
+    
         const roomId = messages[0].room_id
-
-        // 通知聊天室內的所有人
+    
         io.to(`room-${roomId}`).emit('message-edited', {
           messageId,
           content,

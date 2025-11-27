@@ -18,6 +18,7 @@ export default function MessageInput({
   editingContent,
   onCancelEdit,
 }: MessageInputProps) {
+  
   const [message, setMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const { startTyping, stopTyping } = useSocket()
@@ -149,7 +150,6 @@ export default function MessageInput({
           </button>
         </div>
 
-        {/* Attachment button */}
         <button
           type="button"
           className="p-3 text-gray-400 hover:text-gray-600"
@@ -169,7 +169,6 @@ export default function MessageInput({
           </svg>
         </button>
 
-        {/* Send button */}
         <button
           type="submit"
           disabled={!message.trim()}

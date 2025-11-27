@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useSocket } from '@/providers/SocketProvider'
 import { useAuth } from '@/providers/AuthProvider'
+import MessageInput from './MessageInput'
 
 interface Message {
   id: number
@@ -15,22 +16,32 @@ interface Message {
   created_at: string
   is_recalled?: boolean
   is_deleted?: boolean
+  is_edited?: boolean
+
+}
+
+interface TypingUser {
+  userId: number
+  username: string
 }
 
 interface ChatAreaProps {
   roomId: string
-  onBack?: () => void 
-
+  onBack?: () => void
 }
 
-export default function ChatArea({ roomId, onBack  }: ChatAreaProps) {
+export default function ChatArea({ roomId, onBack }: ChatAreaProps) {
   const { socket, connected } = useSocket()
   const { user } = useAuth()
   const [messages, setMessages] = useState<Message[]>([])
-  const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [roomInfo, setRoomInfo] = useState<any>(null)
   const [activeMenu, setActiveMenu] = useState<number | null>(null)
+  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([])
+
+  // 編輯訊息相關
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -96,7 +107,6 @@ export default function ChatArea({ roomId, onBack  }: ChatAreaProps) {
       })
     }
 
-    // 處理訊息收回
     const handleMessageRecalled = ({ messageId }: { messageId: number }) => {
       setMessages((prev) =>
         prev.map((msg) =>
@@ -105,9 +115,29 @@ export default function ChatArea({ roomId, onBack  }: ChatAreaProps) {
       )
     }
 
-    // 處理訊息刪除
     const handleMessageDeleted = ({ messageId }: { messageId: number }) => {
       setMessages((prev) => prev.filter((msg) => msg.id !== messageId))
+    }
+
+    const handleMessageEdited = ({ messageId, content }: { messageId: number; content: string }) => {
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId ? { ...msg, content, is_edited: true } : msg
+        )
+      )
+    }
+    const handleUserTyping = (data: { userId: number; username: string; roomId: string; isTyping: boolean }) => {
+      if (data.userId === user?.id) return
+
+      if (data.isTyping) {
+        setTypingUsers((prev) => {
+          if (prev.find(u => u.userId === data.userId)) return prev
+          return [...prev, { userId: data.userId, username: data.username }]
+        })
+      } else {
+        setTypingUsers((prev) => prev.filter(u => u.userId !== data.userId))
+      }
     }
 
     const handleError = (error: any) => {
@@ -117,6 +147,8 @@ export default function ChatArea({ roomId, onBack  }: ChatAreaProps) {
     socket.on('new-message', handleNewMessage)
     socket.on('message-recalled', handleMessageRecalled)
     socket.on('message-deleted', handleMessageDeleted)
+    socket.on('message-edited', handleMessageEdited)
+    socket.on('user-typing', handleUserTyping)
     socket.on('error', handleError)
 
     return () => {
@@ -124,58 +156,65 @@ export default function ChatArea({ roomId, onBack  }: ChatAreaProps) {
       socket.off('new-message', handleNewMessage)
       socket.off('message-recalled', handleMessageRecalled)
       socket.off('message-deleted', handleMessageDeleted)
+      socket.off('message-edited', handleMessageEdited)
+      socket.off('user-typing', handleUserTyping)
       socket.off('error', handleError)
     }
-  }, [socket, roomId])
+  }, [socket, roomId, user?.id])
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newMessage.trim() || !socket || !connected) return
+  const handleSendMessage = (content: string) => {
+    if (!socket || !connected) return
 
-    try {
-      setLoading(true)
+    if (editingMessage) {
+
+      socket.emit('edit-message', {
+        roomId: parseInt(roomId),
+        messageId: editingMessage.id,
+        content
+      })
+      setEditingMessage(null)
+    } else {
+      // 發送新訊息
       socket.emit('send-message', {
         roomId: parseInt(roomId),
-        content: newMessage.trim(),
+        content,
         type: 'text'
       })
-      setNewMessage('')
-    } catch (error) {
-      console.error('❌ Error:', error)
-    } finally {
-      setLoading(false)
     }
   }
 
-  // 收回訊息 - 所有人都會看到「訊息已收回」
+  // 開始編輯訊息
+  const handleStartEdit = (message: Message) => {
+    setEditingMessage(message)
+    setActiveMenu(null)
+  }
+
+  // 取消編輯
+  const handleCancelEdit = () => {
+    setEditingMessage(null)
+  }
+
+  // 收回訊息
   const handleRecallMessage = async (messageId: number) => {
     if (!socket || !connected) return
-    
-    try {
-      socket.emit('recall-message', {
-        roomId: parseInt(roomId),
-        messageId
-      })
-      setActiveMenu(null)
-    } catch (error) {
-      console.error('❌ Error recalling message:', error)
-    }
+
+    socket.emit('recall-message', {
+      roomId: parseInt(roomId),
+      messageId
+    })
+    setActiveMenu(null)
   }
 
-  // 刪除訊息 - 僅自己看不到
+  // 刪除訊息
   const handleDeleteMessage = async (messageId: number) => {
     if (!socket || !connected) return
-    
-    try {
-      socket.emit('delete-message', {
-        roomId: parseInt(roomId),
-        messageId
-      })
-      setMessages((prev) => prev.filter((msg) => msg.id !== messageId))
-      setActiveMenu(null)
-    } catch (error) {
-      console.error('❌ Error deleting message:', error)
-    }
+
+    socket.emit('delete-message', {
+      roomId: parseInt(roomId),
+      messageId
+    })
+    setMessages((prev) => prev.filter((msg) => msg.id !== messageId))
+    setActiveMenu(null)
   }
 
   const formatTime = (timestamp: string) => {
@@ -196,30 +235,53 @@ export default function ChatArea({ roomId, onBack  }: ChatAreaProps) {
   const canRecallMessage = (message: Message) => {
     if (message.user_id !== user?.id) return false
     if (message.is_recalled) return false
-    
+
     const messageTime = new Date(message.created_at).getTime()
     const now = Date.now()
     const twoMinutes = 2 * 60 * 1000
-    
+
     return now - messageTime < twoMinutes
+  }
+
+  // 檢查訊息是否可以編輯（5分鐘內）
+  const canEditMessage = (message: Message) => {
+    if (message.user_id !== user?.id) return false
+    if (message.is_recalled) return false
+
+    const messageTime = new Date(message.created_at).getTime()
+    const now = Date.now()
+    const fiveMinutes = 5 * 60 * 1000
+
+    return now - messageTime < fiveMinutes
+  }
+
+  const getTypingText = () => {
+    if (typingUsers.length === 0) return null
+    if (typingUsers.length === 1) {
+      return `${typingUsers[0].username} 正在輸入...`
+    }
+    if (typingUsers.length === 2) {
+      return `${typingUsers[0].username} 和 ${typingUsers[1].username} 正在輸入...`
+    }
+    return `${typingUsers.length} 人正在輸入...`
   }
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
+      {/* 頭部 */}
       <div className="px-6 py-4 bg-white border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center gap-3">
-        {onBack && (
-              <button
-                onClick={onBack}
-                className="lg:hidden p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-            )}
-          <div>
-            
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="lg:hidden p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+          <div className="flex-1">
             <h2 className="text-xl font-semibold text-gray-900">
               {roomInfo?.name || 'Loading...'}
             </h2>
@@ -227,15 +289,15 @@ export default function ChatArea({ roomId, onBack  }: ChatAreaProps) {
               <p className="text-sm text-gray-500 mt-0.5">{roomInfo.description}</p>
             )}
           </div>
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
-            connected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-          }`}>
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${connected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+            }`}>
             <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-            {connected ? 'Connected' : 'Disconnected'}
+            {connected ? '已連線' : '連線中...'}
           </div>
         </div>
       </div>
 
+      {/* 訊息區 */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400">
@@ -243,7 +305,7 @@ export default function ChatArea({ roomId, onBack  }: ChatAreaProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
             <p className="text-lg font-medium">尚未有聊天訊息</p>
-            <p className="text-sm">開啟聊天吧</p>
+            <p className="text-sm">開始聊天吧</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -270,20 +332,24 @@ export default function ChatArea({ roomId, onBack  }: ChatAreaProps) {
                       )}
 
                       <div className="relative group">
-                        {/* 訊息內容 */}
                         <div
-                          className={`px-4 py-2.5 rounded-2xl ${
-                            message.is_recalled
-                              ? 'bg-gray-200 text-gray-700 '
+                          className={`px-4 py-2.5 rounded-2xl ${message.is_recalled
+                              ? 'bg-gray-200 text-gray-500 italic'
                               : isOwnMessage
                                 ? 'bg-blue-500 text-white rounded-br-md'
                                 : 'bg-white text-gray-900 rounded-bl-md shadow-sm border border-gray-100'
-                          }`}
+                            }`}
                         >
                           {message.is_recalled ? '訊息已收回' : message.content}
+
+                          {!!message.is_edited && !message.is_recalled && (
+                            <span className={`text-xs ml-2 ${isOwnMessage ? 'text-blue-200' : 'text-gray-400'}`}>
+                              (已編輯)
+                            </span>
+                          )}
                         </div>
 
-                        {/* 操作按鈕 - 只有自己的訊息且未被收回才顯示 */}
+                        {/* 操作選單 */}
                         {isOwnMessage && !message.is_recalled && (
                           <div className="absolute top-1/2 -translate-y-1/2 right-full mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
@@ -295,12 +361,25 @@ export default function ChatArea({ roomId, onBack  }: ChatAreaProps) {
                               </svg>
                             </button>
 
-                            {/* 下拉選單 */}
                             {activeMenu === message.id && (
                               <div
                                 ref={menuRef}
                                 className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[120px] z-10"
                               >
+                                {/* 編輯按鈕 */}
+                                {canEditMessage(message) && (
+                                  <button
+                                    onClick={() => handleStartEdit(message)}
+                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    編輯訊息
+                                  </button>
+                                )}
+
+                                {/* 收回按鈕 */}
                                 {canRecallMessage(message) && (
                                   <button
                                     onClick={() => handleRecallMessage(message.id)}
@@ -312,6 +391,8 @@ export default function ChatArea({ roomId, onBack  }: ChatAreaProps) {
                                     收回訊息
                                   </button>
                                 )}
+
+                                {/* 刪除按鈕 */}
                                 <button
                                   onClick={() => handleDeleteMessage(message.id)}
                                   className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
@@ -342,27 +423,28 @@ export default function ChatArea({ roomId, onBack  }: ChatAreaProps) {
         )}
       </div>
 
-      {/* 輸入區域 */}
-      <form onSubmit={handleSendMessage} className="px-6 py-4 bg-white border-t border-gray-200 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder={connected ? "Type a message..." : "Connecting..."}
-            disabled={!connected || loading}
-            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-900 placeholder-gray-400 outline-none"
-            autoFocus
-          />
-          <button
-            type="submit"
-            disabled={!connected || loading || !newMessage.trim()}
-            className="px-6 py-2.5 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? 'Sending...' : 'Send'}
-          </button>
+      {/* 正在輸入提示 */}
+      {typingUsers.length > 0 && (
+        <div className="px-6 py-2 bg-gray-50 border-t border-gray-100">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className="flex gap-1">
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+            </div>
+            <span>{getTypingText()}</span>
+          </div>
         </div>
-      </form>
+      )}
+
+      {/* 輸入區 */}
+      <MessageInput
+        onSendMessage={handleSendMessage}
+        roomId={roomId}
+        editingMessage={editingMessage ? editingMessage.id.toString() : null}
+        editingContent={editingMessage?.content}
+        onCancelEdit={handleCancelEdit}
+      />
     </div>
   )
 }
