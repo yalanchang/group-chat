@@ -42,76 +42,72 @@ router.get('/', authenticateToken, async (req: any, res) => {
   })
 
 
-router.post('/', authenticateToken, async (req: any, res) => {
-  const { name, description, type = 'group', memberIds = [] } = req.body
-
-  try {
-    if (!name) {
-      return res.status(400).json({ message: 'Room name is required' })
-    }
-
-    const connection = await pool.getConnection()
-    await connection.beginTransaction()
-
+  router.post('/', authenticateToken, async (req: any, res) => {
+    const { name, description, is_private = false, type = 'group', memberIds = [] } = req.body 
+  
     try {
-      const [roomResult] = await connection.execute<ResultSetHeader>(
-        'INSERT INTO rooms (name, description, type, created_by) VALUES (?, ?, ?, ?)',
-        [name, description || null, type, req.userId]
-      )
-
-      const roomId = roomResult.insertId
-
-      // 添加創建者為管理員
-      await connection.execute(
-        'INSERT INTO room_members (room_id, user_id, role) VALUES (?, ?, ?)',
-        [roomId, req.userId, 'admin']
-      )
-
-      // 添加其他成員
-      for (const memberId of memberIds) {
-        if (memberId !== req.userId) {
-          await connection.execute(
-            'INSERT INTO room_members (room_id, user_id, role) VALUES (?, ?, ?)',
-            [roomId, memberId, 'member']
-          )
+      if (!name) {
+        return res.status(400).json({ message: 'Room name is required' })
+      }
+  
+      const connection = await pool.getConnection()
+      await connection.beginTransaction()
+  
+      try {
+        const [roomResult] = await connection.execute<ResultSetHeader>(
+          'INSERT INTO rooms (name, description, type, is_private, created_by) VALUES (?, ?, ?, ?, ?)',
+          [name, description || null, type, is_private, req.userId]
+        )
+  
+        const roomId = roomResult.insertId
+  
+        await connection.execute(
+          'INSERT INTO room_members (room_id, user_id, role) VALUES (?, ?, ?)',
+          [roomId, req.userId, 'admin']
+        )
+  
+        for (const memberId of memberIds) {
+          if (memberId !== req.userId) {
+            await connection.execute(
+              'INSERT INTO room_members (room_id, user_id, role) VALUES (?, ?, ?)',
+              [roomId, memberId, 'member']
+            )
+          }
         }
-      }
-
-      // 創建系統訊息
-      await connection.execute(
-        'INSERT INTO messages (room_id, user_id, content, type) VALUES (?, ?, ?, ?)',
-        [roomId, req.userId, `${req.username} created the room`, 'system']
-      )
-
-      await connection.commit()
-
-      // 通知新成員（透過 Socket.io）
-      const io = (req as any).io
-      if (io) {
-        memberIds.forEach((memberId: number) => {
-          io.to(`user-${memberId}`).emit('room-created', {
-            roomId,
-            name,
-            createdBy: req.username
+  
+        await connection.execute(
+          'INSERT INTO messages (room_id, user_id, content, type) VALUES (?, ?, ?, ?)',
+          [roomId, req.userId, `${req.user.username} created the room`, 'system']
+        )
+  
+        await connection.commit()
+  
+        const io = (req as any).io
+        if (io) {
+          memberIds.forEach((memberId: number) => {
+            io.to(`user-${memberId}`).emit('room-created', {
+              roomId,
+              name,
+              createdBy: req.user.username  
+            })
           })
+        }
+  
+        res.status(201).json({
+          message: 'Room created successfully',
+          roomId
         })
+      } catch (error) {
+        await connection.rollback()
+        throw error
+      } finally {
+        connection.release()
       }
-
-      res.status(201).json({
-        message: 'Room created successfully',
-        roomId
-      })
     } catch (error) {
-      await connection.rollback()
-      throw error
-    } finally {
-      connection.release()
+      console.error('Error creating room:', error)
+      res.status(500).json({ message: 'Internal server error' })
     }
-  } catch (error) {
-    console.error('Error creating room:', error)
-    res.status(500).json({ message: 'Internal server error' })
-  }
-})
+  })
 
 // 獲取單個房間資訊
 router.get('/:roomId', authenticateToken, async (req: any, res) => {
@@ -338,16 +334,14 @@ router.post('/:roomId/leave', authenticateToken, async (req: any, res) => {
       return res.status(400).json({ message: 'Not a member of this room' })
     }
 
-    // 刪除成員資格
     await pool.execute(
       'DELETE FROM room_members WHERE room_id = ? AND user_id = ?',
       [roomId, req.userId]
     )
 
-    // 創建系統訊息
     await pool.execute(
       'INSERT INTO messages (room_id, user_id, content, type) VALUES (?, ?, ?, ?)',
-      [roomId, req.userId, `${req.username} left the room`, 'system']
+      [roomId, req.userId, `${req.user.username} left the room`, 'system'] 
     )
 
     res.json({ message: 'Left room successfully' })
@@ -363,7 +357,6 @@ router.post('/:roomId/members', authenticateToken, async (req: any, res) => {
   const { userIds } = req.body
 
   try {
-    // 檢查請求者是否為管理員或版主
     const [members] = await pool.execute<RowDataPacket[]>(
       'SELECT * FROM room_members WHERE room_id = ? AND user_id = ? AND role IN (?, ?)',
       [roomId, req.userId, 'admin', 'moderator']
@@ -376,7 +369,6 @@ router.post('/:roomId/members', authenticateToken, async (req: any, res) => {
     const addedUsers = []
 
     for (const userId of userIds) {
-      // 檢查是否已經是成員
       const [existing] = await pool.execute<RowDataPacket[]>(
         'SELECT * FROM room_members WHERE room_id = ? AND user_id = ?',
         [roomId, userId]
@@ -392,10 +384,9 @@ router.post('/:roomId/members', authenticateToken, async (req: any, res) => {
     }
 
     if (addedUsers.length > 0) {
-      // 創建系統訊息
       await pool.execute(
         'INSERT INTO messages (room_id, user_id, content, type) VALUES (?, ?, ?, ?)',
-        [roomId, req.userId, `${req.username} added ${addedUsers.length} member(s) to the room`, 'system']
+        [roomId, req.userId, `${req.user.username} added ${addedUsers.length} member(s) to the room`, 'system']  
       )
     }
 
@@ -424,12 +415,10 @@ router.delete('/:roomId/members/:userId', authenticateToken, async (req: any, re
       return res.status(403).json({ message: 'Only admins can remove members' })
     }
 
-    // 不能移除自己
     if (parseInt(userId) === req.userId) {
       return res.status(400).json({ message: 'Cannot remove yourself' })
     }
 
-    // 移除成員
     const [result] = await pool.execute<ResultSetHeader>(
       'DELETE FROM room_members WHERE room_id = ? AND user_id = ?',
       [roomId, userId]
@@ -439,7 +428,6 @@ router.delete('/:roomId/members/:userId', authenticateToken, async (req: any, re
       return res.status(404).json({ message: 'Member not found' })
     }
 
-    // 創建系統訊息
     const [users] = await pool.execute<RowDataPacket[]>(
       'SELECT username FROM users WHERE id = ?',
       [userId]
@@ -447,7 +435,7 @@ router.delete('/:roomId/members/:userId', authenticateToken, async (req: any, re
 
     await pool.execute(
       'INSERT INTO messages (room_id, user_id, content, type) VALUES (?, ?, ?, ?)',
-      [roomId, req.userId, `${req.username} removed ${users[0]?.username || 'a member'} from the room`, 'system']
+      [roomId, req.userId, `${req.user.username} removed ${users[0]?.username || 'a member'} from the room`, 'system'] 
     )
 
     res.json({ message: 'Member removed successfully' })

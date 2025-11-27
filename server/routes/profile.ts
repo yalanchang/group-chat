@@ -283,7 +283,7 @@ router.post('/avatar', authenticateToken, upload.single('avatar'), async (req: a
 
 router.put('/settings', authenticateToken, async (req: any, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     
     if (!userId) {
       res.status(401).json({ message: '未授權' });
@@ -335,7 +335,7 @@ router.put('/settings', authenticateToken, async (req: any, res) => {
 
 router.put('/password', authenticateToken, async (req: any, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     
     if (!userId) {
       res.status(401).json({ message: '未授權' });
@@ -390,7 +390,7 @@ router.put('/password', authenticateToken, async (req: any, res) => {
 
 router.delete('/account', authenticateToken, async (req: any, res)  => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     
     if (!userId) {
       res.status(401).json({ message: '未授權' });

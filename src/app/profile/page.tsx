@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/providers/AuthProvider'
+import { useTheme } from '@/providers/ThemeProvider'
+
 
 interface UserProfile {
   id: number
@@ -30,6 +32,7 @@ interface UserProfile {
 }
 
 export default function UserProfile() {
+  const { theme, setTheme } = useTheme()  
   const router = useRouter()
   const { user, token, logout, loading: authLoading } = useAuth() 
   const [activeTab, setActiveTab] = useState('profile')
@@ -38,7 +41,6 @@ export default function UserProfile() {
   const [editing, setEditing] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
-  
   const [formData, setFormData] = useState({
     username: '',
     bio: '',
@@ -63,6 +65,12 @@ export default function UserProfile() {
     newPassword: '',
     confirmPassword: ''
   })
+
+const [showPassword, setShowPassword] = useState({
+  current: false,
+  new: false,
+  confirm: false
+})
   
   useEffect(() => {
     if (authLoading) return
@@ -208,12 +216,7 @@ export default function UserProfile() {
       
       if (response.ok) {
         showMessage('success', '設定更新成功')
-        
-        if (settings.theme === 'dark') {
-          document.documentElement.classList.add('dark')
-        } else {
-          document.documentElement.classList.remove('dark')
-        }
+        setTheme(settings.theme as 'light' | 'dark' | 'auto')
       } else {
         throw new Error('Update failed')
       }
@@ -325,15 +328,15 @@ export default function UserProfile() {
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-4 sm:py-8 px-3 sm:px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-4 sm:py-8 px-3 sm:px-4">
       <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-8 mb-4 sm:mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-8 mb-4 sm:mb-6">
           <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <h1 className="text-xl sm:text-3xl font-bold text-gray-900">會員中心</h1>
+            <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-white">會員中心</h1>
             <button
               onClick={() => router.push('/chat')}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
+              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
               </svg>
@@ -345,8 +348,8 @@ export default function UserProfile() {
               <img
                 src={profile.avatar_url ? `http://localhost:3001${profile.avatar_url}` : `https://ui-avatars.com/api/?name=${profile.username}&background=6366f1&color=fff&size=128`}
                 alt={profile.username}
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-gray-100"
-              />
+                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-gray-100 dark:border-gray-700"
+                />
               {uploading && (
                 <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
                   <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-2 border-white border-t-transparent"></div>
@@ -366,42 +369,40 @@ export default function UserProfile() {
               </label>
             </div>
             
-            <div className="flex-1 text-center sm:text-left">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{profile.username}</h2>
-              <p className="text-gray-500 text-sm sm:text-base truncate">{profile.email}</p>
+            <div className="flex-1 text-center sm:text-left ">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{profile.username}</h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base truncate">{profile.email}</p>
               
               <div className="grid grid-cols-3 gap-2 sm:flex sm:gap-6 mt-3 text-xs sm:text-sm">
-                <div className="bg-gray-50 sm:bg-transparent p-2 sm:p-0 rounded-lg">
-                  <span className="block sm:inline text-gray-500">訊息數</span>
-                  <span className="block sm:inline font-semibold text-gray-900 sm:ml-1">{profile.total_messages}</span>
-                </div>
-                <div className="bg-gray-50 sm:bg-transparent p-2 sm:p-0 rounded-lg">
-                  <span className="block sm:inline text-gray-500">加入房間</span>
-                  <span className="block sm:inline font-semibold text-gray-900 sm:ml-1">{profile.total_rooms_joined}</span>
-                </div>
-                <div className="bg-gray-50 sm:bg-transparent p-2 sm:p-0 rounded-lg">
-                  <span className="block sm:inline text-gray-500">建立房間</span>
-                  <span className="block sm:inline font-semibold text-gray-900 sm:ml-1">{profile.total_rooms_created}</span>
-                </div>
+              <div className="bg-gray-50 dark:bg-gray-700 sm:bg-transparent sm:dark:bg-transparent p-2 sm:p-0 rounded-lg">
+              <span className="block sm:inline text-gray-500 dark:text-gray-400">訊息數</span>
+              <span className="block sm:inline font-semibold text-gray-900 dark:text-white sm:ml-1">{profile.total_messages}</span>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-700 sm:bg-transparent sm:dark:bg-transparent p-2 sm:p-0 rounded-lg">
+                <span className="block sm:inline text-gray-500 dark:text-gray-400">加入房間</span>
+                <span className="block sm:inline font-semibold text-gray-900 dark:text-white sm:ml-1">{profile.total_rooms_joined}</span>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-700 sm:bg-transparent sm:dark:bg-transparent p-2 sm:p-0 rounded-lg">
+                <span className="block sm:inline text-gray-500 dark:text-gray-400">建立房間</span>
+                <span className="block sm:inline font-semibold text-gray-900 dark:text-white sm:ml-1">{profile.total_rooms_created}</span>
+              </div>
               </div>
             </div>
           </div>
         </div>
         
-        {/* 訊息提示 */}
         {message.text && (
           <div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-xl shadow-lg text-sm sm:text-base ${
             message.type === 'success' 
-              ? 'bg-green-50 text-green-800 border border-green-200' 
-              : 'bg-red-50 text-red-800 border border-red-200'
+            ? 'bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800' 
+            : 'bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800'
           }`}>
             {message.text}
           </div>
         )}
         
-        {/* 標籤頁 */}
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden">
-          <div className="border-b border-gray-200">
+        <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-lg overflow-hidden">
+        <div className="border-b border-gray-200 dark:border-gray-700">
             <div className="flex">
               {['profile', 'settings', 'security'].map((tab) => (
                 <button
@@ -409,8 +410,8 @@ export default function UserProfile() {
                   onClick={() => setActiveTab(tab)}
                   className={`flex-1 px-2 sm:px-6 py-3 sm:py-4 text-center text-xs sm:text-base font-semibold transition-colors ${
                     activeTab === tab
-                      ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                      ? 'text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400 bg-primary-50 dark:bg-primary-900/20'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
                   {tab === 'profile' && '個人資料'}
@@ -422,12 +423,11 @@ export default function UserProfile() {
           </div>
           
           <div className="p-4 sm:p-8">
-            {/* 個人資料標籤 */}
             {activeTab === 'profile' && (
               <form onSubmit={handleUpdateProfile}>
                 <div className="space-y-4 sm:space-y-6">
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 sm:mb-6">
-                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">基本資料</h3>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">基本資料</h3>
                     {!editing ? (
                       <button
                         type="button"
@@ -460,7 +460,7 @@ export default function UserProfile() {
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
                         用戶名稱
                       </label>
                       <input
@@ -468,20 +468,20 @@ export default function UserProfile() {
                         value={formData.username}
                         onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                         disabled={!editing}
-                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500 text-sm sm:text-base"
-                      />
+                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
+                        />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
                         性別
                       </label>
                       <select
                         value={formData.gender}
                         onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                         disabled={!editing}
-                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500 text-sm sm:text-base"
-                      >
+                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
+                        >
                         <option value="prefer_not_to_say">不願透露</option>
                         <option value="male">男性</option>
                         <option value="female">女性</option>
@@ -490,7 +490,7 @@ export default function UserProfile() {
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
                         電話號碼
                       </label>
                       <input
@@ -498,13 +498,13 @@ export default function UserProfile() {
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                         disabled={!editing}
-                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500 text-sm sm:text-base"
+                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
                         placeholder="09xx-xxx-xxx"
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
                         生日
                       </label>
                       <input
@@ -512,12 +512,12 @@ export default function UserProfile() {
                         value={formData.birthday}
                         onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
                         disabled={!editing}
-                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500 text-sm sm:text-base"
-                      />
+                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
+                        />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
                         所在地
                       </label>
                       <input
@@ -525,13 +525,13 @@ export default function UserProfile() {
                         value={formData.location}
                         onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                         disabled={!editing}
-                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500 text-sm sm:text-base"
+                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
                         placeholder="台北市"
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
                         個人網站
                       </label>
                       <input
@@ -539,14 +539,14 @@ export default function UserProfile() {
                         value={formData.website}
                         onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                         disabled={!editing}
-                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500 text-sm sm:text-base"
+                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
                         placeholder="https://example.com"
                       />
                     </div>
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
                       自我介紹
                     </label>
                     <textarea
@@ -554,7 +554,7 @@ export default function UserProfile() {
                       onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                       disabled={!editing}
                       rows={3}
-                      className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500 resize-none text-sm sm:text-base"
+                      className="w-full px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none text-sm sm:text-base"
                       placeholder="介紹一下自己..."
                     />
                   </div>
@@ -562,56 +562,53 @@ export default function UserProfile() {
               </form>
             )}
             
-            {/* 偏好設定標籤 */}
             {activeTab === 'settings' && (
               <div className="space-y-4 sm:space-y-6">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">偏好設定</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">偏好設定</h3>
                 
                 <div className="space-y-3 sm:space-y-4">
-                  {/* 設定項目 */}
                   {[
                     { key: 'email_notifications', title: '電子郵件通知', desc: '接收重要更新和通知' },
                     { key: 'push_notifications', title: '推播通知', desc: '在瀏覽器中接收即時通知' },
                     { key: 'show_online_status', title: '顯示線上狀態', desc: '讓其他人知道您是否在線' },
                     { key: 'allow_private_messages', title: '允許私人訊息', desc: '接收來自其他用戶的私人訊息' },
                   ].map((item) => (
-                    <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg">
+                    <div key={item.key} className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                       <div className="flex-1 min-w-0 mr-3">
-                        <p className="font-semibold text-gray-900 text-sm sm:text-base">{item.title}</p>
-                        <p className="text-xs sm:text-sm text-gray-500 truncate">{item.desc}</p>
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{item.title}</p>
+                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{item.desc}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                        <input
+                      <input
                           type="checkbox"
                           checked={settings[item.key as keyof typeof settings] as boolean}
                           onChange={(e) => setSettings({ ...settings, [item.key]: e.target.checked })}
                           className="sr-only peer"
                         />
-                        <div className="w-10 h-5 sm:w-11 sm:h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                      <div className="w-10 h-5 sm:w-11 sm:h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
                       </label>
                     </div>
                   ))}
                   
-                  <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
-                    <label className="block font-semibold text-gray-900 mb-2 text-sm sm:text-base">主題</label>
+                  <div className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <label className="block font-semibold text-gray-900 dark:text-white mb-2 text-sm sm:text-base">主題</label>
                     <select
                       value={settings.theme}
                       onChange={(e) => setSettings({ ...settings, theme: e.target.value })}
-                      className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm sm:text-base"
-                    >
+                      className="w-full px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white text-sm sm:text-base"
+                      >
                       <option value="light">淺色模式</option>
                       <option value="dark">深色模式</option>
-                      <option value="auto">跟隨系統</option>
                     </select>
                   </div>
                   
-                  <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
-                    <label className="block font-semibold text-gray-900 mb-2 text-sm sm:text-base">語言</label>
+                  <div className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <label className="block font-semibold text-gray-900 dark:text-white mb-2 text-sm sm:text-base">語言</label>
                     <select
                       value={settings.language}
                       onChange={(e) => setSettings({ ...settings, language: e.target.value })}
-                      className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm sm:text-base"
-                    >
+                      className="w-full px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white text-sm sm:text-base"
+                      >
                       <option value="zh-TW">繁體中文</option>
                       <option value="zh-CN">简体中文</option>
                       <option value="en">English</option>
@@ -631,76 +628,128 @@ export default function UserProfile() {
               </div>
             )}
             
-            {/* 帳號安全標籤 */}
             {activeTab === 'security' && (
-              <div className="space-y-6 sm:space-y-8">
-                <div>
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">更改密碼</h3>
-                  <form onSubmit={handleChangePassword} className="space-y-3 sm:space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
-                        當前密碼
-                      </label>
-                      <input
-                        type="password"
-                        value={passwordData.currentPassword}
-                        onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm sm:text-base"
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
-                        新密碼
-                      </label>
-                      <input
-                        type="password"
-                        value={passwordData.newPassword}
-                        onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm sm:text-base"
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
-                        確認新密碼
-                      </label>
-                      <input
-                        type="password"
-                        value={passwordData.confirmPassword}
-                        onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm sm:text-base"
-                        required
-                      />
-                    </div>
-                    
-                    <button
-                      type="submit"
-                      className="w-full px-6 py-2.5 sm:py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-semibold transition-colors text-sm sm:text-base"
-                    >
-                      更新密碼
-                    </button>
-                  </form>
-                </div>
-                
-                <div className="pt-6 sm:pt-8 border-t border-gray-200">
-                  <h3 className="text-lg sm:text-xl font-bold text-red-600 mb-4">危險區域</h3>
-                  <div className="p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-gray-700 mb-4 text-sm sm:text-base">
-                      刪除帳號後，您的所有資料將被永久刪除，此操作無法復原。
-                    </p>
-                    <button
-                      onClick={handleDeleteAccount}
-                      className="w-full sm:w-auto px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors text-sm sm:text-base"
-                    >
-                      永久刪除帳號
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+  <div className="space-y-6 sm:space-y-8">
+    <div>
+    <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">更改密碼</h3>
+    <form onSubmit={handleChangePassword} className="space-y-3 sm:space-y-4">
+        <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
+        當前密碼
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword.current ? 'text' : 'password'}
+              value={passwordData.currentPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+              className="w-full px-3 sm:px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword({ ...showPassword, current: !showPassword.current })}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+              {showPassword.current ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
+        
+        <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
+        新密碼
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword.new ? 'text' : 'password'}
+              value={passwordData.newPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+              className="w-full px-3 sm:px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword({ ...showPassword, new: !showPassword.new })}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            >
+              {showPassword.new ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
+        
+        <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
+        確認新密碼
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword.confirm ? 'text' : 'password'}
+              value={passwordData.confirmPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+              className="w-full px-3 sm:px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword({ ...showPassword, confirm: !showPassword.confirm })}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            >
+              {showPassword.confirm ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
+        
+        <button
+          type="submit"
+          className="w-full px-6 py-2.5 sm:py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-semibold transition-colors text-sm sm:text-base"
+        >
+          更新密碼
+        </button>
+      </form>
+    </div>
+    
+    <div className="pt-6 sm:pt-8 border-t border-gray-200 dark:border-gray-700">
+    <div className="p-3 sm:p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+    <button
+          onClick={handleDeleteAccount}
+          className="w-full sm:w-auto px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors text-sm sm:text-base"
+        >
+          永久刪除帳號
+        </button>
+        <p className="text-gray-700 dark:text-gray-300 mt-4 text-sm sm:text-base">
+        刪除帳號後，您的所有資料將被永久刪除，此操作無法復原。
+        </p>
+      </div>
+    </div>
+  </div>
+)}
           </div>
         </div>
       </div>

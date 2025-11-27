@@ -288,18 +288,21 @@ CREATE TABLE IF NOT EXISTS user_stats (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- 建立使用者設定表
-CREATE TABLE IF NOT EXISTS user_settings (
-  user_id INT PRIMARY KEY,
+
+-- 建立完整的 user_settings 表
+CREATE TABLE user_settings (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  user_id INT NOT NULL UNIQUE,
   email_notifications BOOLEAN DEFAULT TRUE,
   push_notifications BOOLEAN DEFAULT FALSE,
   show_online_status BOOLEAN DEFAULT TRUE,
   allow_private_messages BOOLEAN DEFAULT TRUE,
-  theme ENUM('light', 'dark', 'auto') DEFAULT 'light',
+  theme VARCHAR(10) DEFAULT 'light',
   language VARCHAR(10) DEFAULT 'zh-TW',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-
 
 CREATE TABLE user_deleted_messages (
   id INT PRIMARY KEY AUTO_INCREMENT,
@@ -310,3 +313,4 @@ CREATE TABLE user_deleted_messages (
   FOREIGN KEY (user_id) REFERENCES users(id),
   FOREIGN KEY (message_id) REFERENCES messages(id)
 );
+

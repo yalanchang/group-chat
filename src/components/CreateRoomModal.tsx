@@ -72,7 +72,6 @@ export default function CreateRoomModal({ onClose, onRoomCreated }: CreateRoomMo
           </button>
         </div>
 
-        {/* 錯誤提示 */}
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-sm text-red-600">{error}</p>
@@ -88,7 +87,7 @@ export default function CreateRoomModal({ onClose, onRoomCreated }: CreateRoomMo
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="e.g., General Discussion"
+              placeholder="輸入聊天室名稱"
               required
               maxLength={50}
             />
@@ -102,7 +101,7 @@ export default function CreateRoomModal({ onClose, onRoomCreated }: CreateRoomMo
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-              placeholder="What's this room about?"
+              placeholder="描述這個聊天室的用途..."
               rows={3}
               maxLength={200}
             />
@@ -117,8 +116,7 @@ export default function CreateRoomModal({ onClose, onRoomCreated }: CreateRoomMo
               className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
             />
             <label htmlFor="isPrivate" className="ml-2 text-sm text-gray-700">
-              Private room (invite only)
-            </label>
+              私密房間</label>
           </div>
 
           {/* 按鈕 */}
@@ -128,8 +126,7 @@ export default function CreateRoomModal({ onClose, onRoomCreated }: CreateRoomMo
               onClick={onClose}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium"
             >
-              Cancel
-            </button>
+取消            </button>
             <button
               type="submit"
               disabled={loading}
@@ -141,8 +138,7 @@ export default function CreateRoomModal({ onClose, onRoomCreated }: CreateRoomMo
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Creating...
-                </span>
+創建中...                </span>
               ) : (
                 'Create Room'
               )}
