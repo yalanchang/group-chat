@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{}"
+self.__REACT_LOADABLE_MANIFEST="{\"components/MessageInput.tsx -> heic2any\":{\"id\":\"components/MessageInput.tsx -> heic2any\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_heic2any_dist_heic2any_js.js\"]}}"

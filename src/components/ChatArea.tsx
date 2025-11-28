@@ -167,7 +167,7 @@ export default function ChatArea({ roomId, onBack }: ChatAreaProps) {
     }
   }, [socket, roomId, user?.id])
 
-  const handleSendMessage = async (content: string, type?: string, file?: File) => {
+  const handleSendMessage = async (content: string, type?: string, files?: File[]) => {
     if (!socket || !connected) return
   
     if (editingMessage) {
@@ -177,31 +177,41 @@ export default function ChatArea({ roomId, onBack }: ChatAreaProps) {
         content
       })
       setEditingMessage(null)
-    } else if (file) {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('roomId', roomId)
-      formData.append('type', type || 'file')
-      if (content) formData.append('content', content)
-  
-      try {
-        const token = localStorage.getItem('token')
-        const response = await fetch('http://localhost:3001/api/messages/upload', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        })
-  
-        if (!response.ok) {
-          throw new Error('上傳失敗')
+    } else if (files && files.length > 0) {
+      // 多檔案上傳
+      for (const file of files) {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('roomId', roomId)
+        
+        const ext = file.name.toLowerCase().split('.').pop()
+        const isImage = file.type.startsWith('image/') || ext === 'heic' || ext === 'heif'
+        formData.append('type', isImage ? 'image' : 'file')
+        
+        // 只在第一個檔案加上文字內容
+        if (file === files[0] && content) {
+          formData.append('content', content)
         }
-      } catch (error) {
-        console.error('上傳錯誤:', error)
-        alert('檔案上傳失敗')
+  
+        try {
+          const token = localStorage.getItem('token')
+          const response = await fetch('http://localhost:3001/api/messages/upload', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          })
+  
+          if (!response.ok) {
+            throw new Error('上傳失敗')
+          }
+        } catch (error) {
+          console.error('上傳錯誤:', error)
+          alert(`${file.name} 上傳失敗`)
+        }
       }
-    } else {
+    } else if (content) {
       socket.emit('send-message', {
         roomId: parseInt(roomId),
         content,

@@ -2,15 +2,20 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useSocket } from '@/providers/SocketProvider'
-import heic2any from 'heic2any'
 
 
 interface MessageInputProps {
-  onSendMessage: (content: string, type?: string, file?: File) => void
+  onSendMessage: (content: string, type?: string, files?: File[]) => void  
   roomId: string
   editingMessage: string | null
   editingContent?: string
   onCancelEdit: () => void
+}
+
+interface FileWithPreview {
+  file: File
+  previewUrl: string | null
+  isConverting: boolean
 }
 
 export default function MessageInput({
@@ -24,10 +29,12 @@ export default function MessageInput({
   const [message, setMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [showAttachMenu, setShowAttachMenu] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [isConverting, setIsConverting] = useState(false)  
+  const [selectedFiles, setSelectedFiles] = useState<FileWithPreview[]>([])
+
+  const [isConverting, setIsConverting] = useState(false)
+
   const { startTyping, stopTyping } = useSocket()
+
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
@@ -53,20 +60,23 @@ export default function MessageInput({
 
   useEffect(() => {
     return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl)
-      }
+      selectedFiles.forEach(f => {
+        if (f.previewUrl) URL.revokeObjectURL(f.previewUrl)
+      })
     }
-  }, [previewUrl])
+  }, [])
+
 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (selectedFile) {
-      const fileType = selectedFile.type.startsWith('image/') ? 'image' : 'file'
-      onSendMessage('', fileType, selectedFile)
-      handleClearFile()
+    if (selectedFiles.length > 0) {
+      const files = selectedFiles.map(f => f.file)
+      const hasImage = files.some(f => f.type.startsWith('image/') || f.name.toLowerCase().match(/\.(heic|heif)$/))
+      onSendMessage(message.trim(), hasImage ? 'image' : 'file', files)
+      handleClearFiles()
+      setMessage('')
     } else if (message.trim()) {
       onSendMessage(message.trim())
       setMessage('')
@@ -74,6 +84,7 @@ export default function MessageInput({
 
     handleStopTyping()
   }
+
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -117,67 +128,119 @@ export default function MessageInput({
     setMessage('')
     onCancelEdit()
   }
-
-  const handleFileSelect =async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (file.size > 20 * 1024 * 1024) {
-      alert('檔案大小不能超過 20MB')
-      return
-    }
-
-    setShowAttachMenu(false)
-    e.target.value = ''
-
-    const ext = file.name.toLowerCase().split('.').pop()
-    const isHeic = ext === 'heic' || ext === 'heif'
-
-    if (isHeic) {
-      try {
-        setIsConverting(true)
-        setSelectedFile(file)
-        
-        const convertedBlob = await heic2any({
-          blob: file,
-          toType: 'image/jpeg',
-          quality: 0.9
-        })
-
-        const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob
-        const url = URL.createObjectURL(blob)
-        setPreviewUrl(url)
-        
-      } catch (error) {
-        console.error('HEIC 轉換失敗:', error)
-        alert('圖片預覽失敗，但仍可上傳')
-        setPreviewUrl(null)
-      } finally {
-        setIsConverting(false)
-      }
-    } else if (file.type.startsWith('image/')) {
-      setSelectedFile(file)
-      const url = URL.createObjectURL(file)
-      setPreviewUrl(url)
-    } else {
-      setSelectedFile(file)
-      setPreviewUrl(null)
-    }
-  
+  const convertHeic = async (blob: Blob): Promise<Blob> => {
+    const heic2any = (await import('heic2any')).default
+    const result = await heic2any({
+      blob,
+      toType: 'image/jpeg',
+      quality: 0.9
+    })
+    return Array.isArray(result) ? result[0] : result
   }
 
-  const handleClearFile = () => {
-    setSelectedFile(null)
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-      setPreviewUrl(null)
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setShowAttachMenu(false)
+
+    let totalSize = selectedFiles.reduce((sum, f) => sum + f.file.size, 0)
+    const newFiles: FileWithPreview[] = []
+
+    const fileArray = Array.from(files)
+
+    for (const file of fileArray) {
+      if (file.size > 20 * 1024 * 1024) {
+        alert(`${file.name} 超過 20MB，已跳過`)
+        continue
+      }
+
+      totalSize += file.size
+      if (totalSize > 50 * 1024 * 1024) {
+        alert('總檔案大小不能超過 50MB')
+        break
+      }
+
+      const ext = file.name.toLowerCase().split('.').pop()
+      const isHeic = ext === 'heic' || ext === 'heif'
+      const isImage = file.type.startsWith('image/') || isHeic
+
+      const fileWithPreview: FileWithPreview = {
+        file,
+        previewUrl: null,
+        isConverting: isImage
+      }
+      newFiles.push(fileWithPreview)
     }
+
+    e.target.value = ''
+
+    if (newFiles.length === 0) return
+
+    setSelectedFiles(prev => [...prev, ...newFiles])
+
+    for (const fileInfo of newFiles) {
+      const file = fileInfo.file
+      const ext = file.name.toLowerCase().split('.').pop()
+      const isHeic = ext === 'heic' || ext === 'heif'
+
+      try {
+        let previewUrl: string | null = null
+
+        if (isHeic) {
+          const convertedBlob = await convertHeic(file)
+          previewUrl = URL.createObjectURL(convertedBlob)
+        } else if (file.type.startsWith('image/')) {
+          previewUrl = URL.createObjectURL(file)
+        }
+
+        setSelectedFiles(prev =>
+          prev.map(f =>
+            f.file.name === file.name && f.file.size === file.size
+              ? { ...f, previewUrl, isConverting: false }
+              : f
+          )
+        )
+      } catch (error) {
+        console.error('預覽失敗:', error)
+        setSelectedFiles(prev =>
+          prev.map(f =>
+            f.file.name === file.name && f.file.size === file.size
+              ? { ...f, isConverting: false }
+              : f
+          )
+        )
+      }
+    }
+  }
+
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles(prev => {
+      const file = prev[index]
+      if (file.previewUrl) {
+        URL.revokeObjectURL(file.previewUrl)
+      }
+      return prev.filter((_, i) => i !== index)
+    })
+  }
+
+  const handleClearFiles = () => {
+    selectedFiles.forEach(f => {
+      if (f.previewUrl) URL.revokeObjectURL(f.previewUrl)
+    })
+    setSelectedFiles([])
   }
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' B'
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  }
+
+  const getTotalSize = () => {
+    return selectedFiles.reduce((sum, f) => sum + f.file.size, 0)
   }
   return (
     <div className="px-6 py-4 border-t border-gray-200 bg-white">
@@ -206,39 +269,64 @@ export default function MessageInput({
             取消</button>
         </div>
       )}
-   {selectedFile && (
+      {/* 多檔案預覽 */}
+      {selectedFiles.length > 0 && (
         <div className="mb-3 p-3 bg-gray-50 rounded-lg">
-          <div className="flex items-center gap-3">
-            {isConverting ? (
-              <div className="w-20 h-20 bg-gray-200 rounded-lg flex flex-col items-center justify-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary-600 border-t-transparent"></div>
-                <span className="text-xs text-gray-500 mt-2">轉換中...</span>
-              </div>
-            ) : previewUrl ? (
-              <div className="relative">
-                <img src={previewUrl} alt="預覽" className="w-20 h-20 object-cover rounded-lg" />
-              </div>
-            ) : (
-              <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-            )}
-
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{selectedFile.name}</p>
-              <p className="text-xs text-gray-500">{formatFileSize(selectedFile.size)}</p>
-            </div>
-
+          {/* 標題列 */}
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-600">
+              已選擇 {selectedFiles.length} 個檔案 ({formatFileSize(getTotalSize())})
+            </span>
             <button
-              onClick={handleClearFile}
-              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+              onClick={handleClearFiles}
+              className="text-xs text-red-500 hover:text-red-600"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              全部移除
             </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+            {selectedFiles.map((fileInfo, index) => (
+              <div key={index} className="relative group">
+                {fileInfo.isConverting ? (
+                  // 轉換中
+                  <div className="w-16 h-16 bg-gray-200 rounded-lg flex flex-col items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary-600 border-t-transparent"></div>
+                  </div>
+                ) : fileInfo.previewUrl ? (
+                  // 圖片預覽
+                  <img
+                    src={fileInfo.previewUrl}
+                    alt="預覽"
+                    className="w-16 h-16 object-cover rounded-lg"
+                  />
+                ) : (
+                  // 檔案圖示
+                  <div className="w-16 h-16 bg-gray-200 rounded-lg flex flex-col items-center justify-center p-1">
+                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="text-xs text-gray-500 truncate w-full text-center mt-1">
+                      {fileInfo.file.name.split('.').pop()?.toUpperCase()}
+                    </span>
+                  </div>
+                )}
+
+                {/* 移除按鈕 */}
+                <button
+                  onClick={() => handleRemoveFile(index)}
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 rounded-b-lg truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                  {fileInfo.file.name}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -249,7 +337,7 @@ export default function MessageInput({
             value={message}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            placeholder={selectedFile ? "新增說明文字（選填）..." : "輸入訊息..."}
+            placeholder={selectedFiles.length > 0 ? "新增說明文字（選填）..." : "輸入訊息..."}
             rows={1}
             className="w-full px-4 py-3 bg-gray-100 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-primary-500 max-h-32"
             style={{
@@ -310,18 +398,18 @@ export default function MessageInput({
               </button>
             </div>
           )}
-
           <input
             ref={imageInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
+            multiple
             onChange={handleFileSelect}
             className="hidden"
           />
           <input
             ref={fileInputRef}
             type="file"
-            accept="*/*"
+            multiple
             onChange={handleFileSelect}
             className="hidden"
           />
@@ -329,11 +417,12 @@ export default function MessageInput({
 
         <button
           type="submit"
-          disabled={!message.trim()}
-          className={`p-3 rounded-full transition ${message.trim()
-            ? 'bg-primary-600 text-white hover:bg-primary-700'
-            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
+          disabled={!message.trim() && selectedFiles.length === 0}
+          className={`p-3 rounded-full transition ${
+            message.trim() || selectedFiles.length > 0
+              ? 'bg-primary-600 text-white hover:bg-primary-700'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
         >
           <svg
             className="w-6 h-6"
