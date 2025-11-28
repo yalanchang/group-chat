@@ -30,9 +30,6 @@ export default function MessageInput({
   const [isTyping, setIsTyping] = useState(false)
   const [showAttachMenu, setShowAttachMenu] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<FileWithPreview[]>([])
-
-  const [isConverting, setIsConverting] = useState(false)
-
   const { startTyping, stopTyping } = useSocket()
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -64,7 +61,7 @@ export default function MessageInput({
         if (f.previewUrl) URL.revokeObjectURL(f.previewUrl)
       })
     }
-  }, [])
+  }, [selectedFiles])
 
 
 

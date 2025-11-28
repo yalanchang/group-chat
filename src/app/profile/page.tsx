@@ -90,8 +90,6 @@ export default function UserProfile() {
     new: false,
     confirm: false
   })
-
-  // 審核管理相關狀態
   const [managedRooms, setManagedRooms] = useState<ManagedRoom[]>([])
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null)
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([])
@@ -120,7 +118,31 @@ export default function UserProfile() {
       fetchJoinRequests(selectedRoomId)
     }
   }, [selectedRoomId])
-  
+
+  const cities = [
+    '台北市',
+    '新北市',
+    '桃園市',
+    '台中市',
+    '台南市',
+    '高雄市',
+    '基隆市',
+    '新竹市',
+    '嘉義市',
+    '新竹縣',
+    '苗栗縣',
+    '彰化縣',
+    '南投縣',
+    '雲林縣',
+    '嘉義縣',
+    '台東縣',
+    '花蓮縣',
+    '宜蘭縣',
+    '屏東縣',
+    '澎湖縣',
+    '金門縣',
+    '連江縣'
+  ];
   const fetchProfile = async () => {
     try {
       if (!token) {
@@ -344,6 +366,7 @@ export default function UserProfile() {
       showMessage('error', '檔案大小不能超過 5MB')
       return
     }
+    
     
     setUploading(true)
     const formData = new FormData()
@@ -700,14 +723,20 @@ export default function UserProfile() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
                         所在地
                       </label>
-                      <input
-                        type="text"
-                        value={formData.location}
-                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                        disabled={!editing}
-                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
-                        placeholder="台北市"
-                      />
+                    <select
+      id="location"
+      value={formData.location}
+      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+      disabled={!editing}
+      className="w-full px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
+    >
+      <option value="">請選擇城市</option>
+      {cities.map((city) => (
+        <option key={city} value={city}>
+          {city}
+        </option>
+      ))}
+    </select>
                     </div>
                     
                     <div>
@@ -984,7 +1013,6 @@ export default function UserProfile() {
                         className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-4 sm:p-5"
                       >
                         <div className="flex items-start gap-4">
-                          {/* 頭像 */}
                           <div className="flex-shrink-0">
                             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-lg">
                               {request.avatar_url ? (

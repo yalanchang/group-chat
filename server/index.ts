@@ -43,7 +43,7 @@ app.use((req: any, res, next) => {
   req.io = io
   next()
 })
-app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 app.use('/uploads/messages', express.static(path.join(__dirname, '../public/uploads/messages')));
 app.use('/api/auth', authRouter)
 app.use('/api/messages', messageRouter)

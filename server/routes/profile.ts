@@ -113,7 +113,7 @@ router.get('/profile', authenticateToken, async (req: any, res) => {
     const [users] = await pool.execute<RowDataPacket[]>(
       `SELECT 
         id, username, email, avatar_url, bio, phone, 
-        birthday, gender, location, website, 
+        DATE_FORMAT(birthday, "%Y-%m-%d") AS birthday, gender, location, website, 
         created_at, updated_at 
        FROM users WHERE id = ?`,
       [userId]
@@ -204,6 +204,7 @@ router.put('/profile', authenticateToken, async (req: any, res) => {
       }
     }
     
+    
     await pool.execute<ResultSetHeader>(`
       UPDATE users 
       SET 
@@ -248,7 +249,6 @@ router.post('/avatar', authenticateToken, upload.single('avatar'), async (req: a
       return;
     }
     
-    // 取得舊頭像URL
     const [users] = await pool.execute<RowDataPacket[]>(
       'SELECT avatar_url FROM users WHERE id = ?',
       [userId]
