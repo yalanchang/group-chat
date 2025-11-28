@@ -70,11 +70,7 @@ router.get('/', authenticateToken, async (req: any, res) => {
           }
         }
   
-        await connection.execute(
-          'INSERT INTO messages (room_id, user_id, content, type) VALUES (?, ?, ?, ?)',
-          [roomId, req.userId, `${req.user.username} created the room`, 'system']
-        )
-  
+    
         await connection.commit()
   
         const io = (req as any).io

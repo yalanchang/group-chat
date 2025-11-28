@@ -60,7 +60,7 @@ export default function CreateRoomModal({ onClose, onRoomCreated }: CreateRoomMo
       <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
         {/* 頭部 */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Create Room</h2>
+          <h2 className="text-2xl font-bold text-gray-900">創建房間</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -139,7 +139,7 @@ export default function CreateRoomModal({ onClose, onRoomCreated }: CreateRoomMo
                   </svg>
 創建中...                </span>
               ) : (
-                'Create Room'
+                '確定'
               )}
             </button>
           </div>
