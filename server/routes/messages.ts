@@ -1,18 +1,59 @@
 import { Router } from 'express'
 import pool from '../database/connection'
-import { RowDataPacket } from 'mysql2'
+import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { authenticateToken } from '../middleware/auth'
+import multer from 'multer'
+import path from 'path'
+import fs from 'fs'
+import sharp from 'sharp'
+
+
+const uploadDir = path.join(__dirname, '../../public/uploads/messages')
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true })
+}
+
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir)
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    const ext = path.extname(file.originalname)
+    cb(null, uniqueSuffix + ext)
+  }
+})
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 20 * 1024 * 1024 
+  }
+})
+
+const isImageFile = (mimetype: string, filename: string) => {
+  const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif']
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif']
+  const ext = path.extname(filename).toLowerCase()
+  
+  return imageTypes.includes(mimetype) || imageExtensions.includes(ext)
+}
+
+const isHeicFile = (mimetype: string, filename: string) => {
+  const ext = path.extname(filename).toLowerCase()
+  return mimetype === 'image/heic' || mimetype === 'image/heif' || ext === '.heic' || ext === '.heif'
+}
+
 
 const router = Router()
 
-// 獲取聊天室的訊息
 router.get('/room/:roomId', authenticateToken, async (req: any, res) => {
   const { roomId } = req.params
   const { page = 1, limit = 50 } = req.query
   const offset = (parseInt(page) - 1) * parseInt(limit)
 
   try {
-    // 檢查用戶是否為聊天室成員
     const [members] = await pool.execute<RowDataPacket[]>(
       'SELECT * FROM room_members WHERE room_id = ? AND user_id = ?',
       [roomId, req.userId]
@@ -22,7 +63,6 @@ router.get('/room/:roomId', authenticateToken, async (req: any, res) => {
       return res.status(403).json({ message: 'Access denied' })
     }
 
-    // 獲取訊息
     const [messages] = await pool.execute<RowDataPacket[]>(
       `SELECT 
         m.id,
@@ -105,6 +145,116 @@ router.get('/search', authenticateToken, async (req: any, res) => {
   } catch (error) {
     console.error('Error searching messages:', error)
     res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+
+
+router.post('/upload', authenticateToken, upload.single('file'), async (req: any, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: '請選擇檔案' })
+    }
+
+    const { roomId, type, content } = req.body
+
+    if (!roomId) {
+      return res.status(400).json({ message: '缺少 roomId' })
+    }
+
+    // 檢查是否為房間成員
+    const [members] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM room_members WHERE room_id = ? AND user_id = ?',
+      [roomId, req.userId]
+    )
+
+    if (members.length === 0) {
+      fs.unlinkSync(req.file.path)
+      return res.status(403).json({ message: '您不是此房間的成員' })
+    }
+    let fileName = Buffer.from(req.file.originalname, 'latin1').toString('utf8')
+    let fileUrl = `/uploads/messages/${req.file.filename}`
+    let fileSize = req.file.size
+
+    if (isHeicFile(req.file.mimetype, fileName)) {
+      try {
+        const jpgFilename = req.file.filename.replace(/\.(heic|heif)$/i, '.jpg')
+        const jpgPath = path.join(uploadDir, jpgFilename)
+
+        await sharp(req.file.path)
+          .jpeg({ quality: 90 })
+          .toFile(jpgPath)
+
+        // 刪除原始 HEIC 檔案
+        fs.unlinkSync(req.file.path)
+
+        // 更新檔案資訊
+        fileUrl = `/uploads/messages/${jpgFilename}`
+        fileName = fileName.replace(/\.(heic|heif)$/i, '.jpg')
+        fileSize = fs.statSync(jpgPath).size
+
+        console.log('✅ HEIC 轉換成功:', jpgFilename)
+      } catch (convertError) {
+        console.error('❌ HEIC 轉換失敗:', convertError)
+        // 轉換失敗就當作一般檔案處理
+      }
+    }
+
+
+
+    const messageType = isImageFile(req.file.mimetype, fileName) ? 'image' : 'file'
+
+    const [result] = await pool.execute<ResultSetHeader>(
+      `INSERT INTO messages (room_id, user_id, content, type, file_url, file_name, file_size) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [roomId, req.userId, content || '', messageType, fileUrl, fileName, fileSize]
+    )
+
+    const messageId = result.insertId
+
+    const [users] = await pool.execute<RowDataPacket[]>(
+      'SELECT username, avatar_url FROM users WHERE id = ?',
+      [req.userId]
+    )
+
+    const newMessage = {
+      id: messageId,
+      room_id: parseInt(roomId),
+      user_id: req.userId,
+      username: users[0]?.username,
+      avatar: users[0]?.avatar_url,
+      content: content || '',
+      type: messageType,
+      file_url: fileUrl,
+      file_name: fileName,
+      file_size: fileSize,
+      created_at: new Date().toISOString()
+    }
+
+    await pool.execute(
+      'UPDATE rooms SET updated_at = NOW() WHERE id = ?',
+      [roomId]
+    )
+
+    const io = req.app.get('io')
+    if (io) {
+      io.to(`room-${roomId}`).emit('new-message', newMessage)
+
+    }
+
+    res.status(201).json({
+      message: '上傳成功',
+      data: newMessage
+    })
+
+  } catch (error) {
+    console.error('Error uploading file:', error)
+    if (req.file) {
+      try {
+        fs.unlinkSync(req.file.path)
+      } catch (e) {}
+    }
+    res.status(500).json({ message: '上傳失敗' })
   }
 })
 

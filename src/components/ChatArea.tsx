@@ -13,11 +13,11 @@ interface Message {
   content: string
   type: string
   file_url?: string
+  file_name?: string
+  file_size?: number
   created_at: string
   is_recalled?: boolean
-  is_deleted?: boolean
   is_edited?: boolean
-
 }
 
 interface TypingUser {
@@ -39,7 +39,6 @@ export default function ChatArea({ roomId, onBack }: ChatAreaProps) {
   const [activeMenu, setActiveMenu] = useState<number | null>(null)
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([])
 
-  // 編輯訊息相關
   const [editingMessage, setEditingMessage] = useState<Message | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -47,6 +46,12 @@ export default function ChatArea({ roomId, onBack }: ChatAreaProps) {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
   useEffect(() => {
@@ -162,19 +167,41 @@ export default function ChatArea({ roomId, onBack }: ChatAreaProps) {
     }
   }, [socket, roomId, user?.id])
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string, type?: string, file?: File) => {
     if (!socket || !connected) return
-
+  
     if (editingMessage) {
-
       socket.emit('edit-message', {
         roomId: parseInt(roomId),
         messageId: editingMessage.id,
         content
       })
       setEditingMessage(null)
+    } else if (file) {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('roomId', roomId)
+      formData.append('type', type || 'file')
+      if (content) formData.append('content', content)
+  
+      try {
+        const token = localStorage.getItem('token')
+        const response = await fetch('http://localhost:3001/api/messages/upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        })
+  
+        if (!response.ok) {
+          throw new Error('上傳失敗')
+        }
+      } catch (error) {
+        console.error('上傳錯誤:', error)
+        alert('檔案上傳失敗')
+      }
     } else {
-      // 發送新訊息
       socket.emit('send-message', {
         roomId: parseInt(roomId),
         content,
@@ -332,22 +359,73 @@ export default function ChatArea({ roomId, onBack }: ChatAreaProps) {
                       )}
 
                       <div className="relative group">
-                        <div
-                          className={`px-4 py-2.5 rounded-2xl ${message.is_recalled
-                              ? 'bg-gray-200 text-gray-500 italic'
-                              : isOwnMessage
-                                ? 'bg-blue-500 text-white rounded-br-md'
-                                : 'bg-white text-gray-900 rounded-bl-md shadow-sm border border-gray-100'
-                            }`}
-                        >
-                          {message.is_recalled ? '訊息已收回' : message.content}
+                     {/* 訊息內容 */}
+<div
+  className={`px-4 py-2.5 rounded-2xl ${
+    message.is_recalled
+      ? 'bg-gray-200 text-gray-500 italic'
+      : isOwnMessage
+        ? 'bg-blue-500 text-white rounded-br-md'
+        : 'bg-white text-gray-900 rounded-bl-md shadow-sm border border-gray-100'
+  }`}
+>
+  {message.is_recalled ? (
+    '訊息已收回'
+  ) : message.type === 'image' && message.file_url ? (
+    // 圖片訊息
+    <div>
+      <img
+        src={`http://localhost:3001${message.file_url}`}
+        alt={message.file_name || '圖片'}
+        className="max-w-[240px] max-h-[240px] rounded-lg cursor-pointer"
+        onClick={() => window.open(`http://localhost:3001${message.file_url}`, '_blank')}
+      />
+      {message.content && (
+        <p className="mt-2">{message.content}</p>
+      )}
+    </div>
+  ) : message.type === 'file' && message.file_url ? (
+    // 檔案訊息
+    <a
+      href={`http://localhost:3001${message.file_url}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`flex items-center gap-3 p-2 rounded-lg ${
+        isOwnMessage ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-100 hover:bg-gray-200'
+      } transition-colors`}
+    >
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+        isOwnMessage ? 'bg-blue-400' : 'bg-gray-300'
+      }`}>
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{message.file_name || '檔案'}</p>
+        {message.file_size != null && (
+          <p className={`text-xs ${isOwnMessage ? 'text-blue-200' : 'text-gray-500'}`}>
+            {formatFileSize(message.file_size)}
+          </p>
+        )}
+      </div>
+      <svg className={`w-5 h-5 ${isOwnMessage ? 'text-blue-200' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+    </a>
+  ) : (
+    // 文字訊息
+    <>
+      {message.content}
+      {message.is_edited && (
+        <span className={`text-xs ml-2 ${isOwnMessage ? 'text-blue-200' : 'text-gray-400'}`}>
+          (已編輯)
+        </span>
+      )}
+    </>
+  )}
+</div>
 
-                          {!!message.is_edited && !message.is_recalled && (
-                            <span className={`text-xs ml-2 ${isOwnMessage ? 'text-blue-200' : 'text-gray-400'}`}>
-                              (已編輯)
-                            </span>
-                          )}
-                        </div>
 
                         {/* 操作選單 */}
                         {isOwnMessage && !message.is_recalled && (

@@ -25,6 +25,8 @@ const io = new Server(server, {
   },
   transports: ['websocket', 'polling']
 })
+app.set('io', io)
+
 
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
@@ -41,11 +43,12 @@ app.use((req: any, res, next) => {
   req.io = io
   next()
 })
-app.use('/uploads', express.static('public/uploads'))
-
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+app.use('/uploads/messages', express.static(path.join(__dirname, '../public/uploads/messages')));
 app.use('/api/auth', authRouter)
 app.use('/api/messages', messageRouter)
 app.use('/api/rooms', roomRouter)
+
 app.use('/api/user', userProfileRoutes);
 
 

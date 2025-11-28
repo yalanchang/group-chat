@@ -4,7 +4,7 @@
   "main": "index.ts",
   "scripts": {
     "start": "ts-node --project ts.config.json index.ts",
-"dev": "nodemon index.ts",
+    "dev": "tsx watch index.ts",
     "build": "tsc",
     "watch": "tsc -w",
     "clean": "rimraf dist",
@@ -19,6 +19,7 @@
     "jsonwebtoken": "^9.0.0",
     "multer": "^2.0.2",
     "mysql2": "^3.6.0",
+    "sharp": "^0.34.5",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
@@ -26,7 +27,7 @@
     "@types/cors": "^2.8.13",
     "@types/express": "^4.17.17",
     "@types/jsonwebtoken": "^9.0.2",
-    "@types/multer": "^1.4.7",
+    "@types/multer": "^1.4.13",
     "@types/node": "^20.5.0",
     "@typescript-eslint/eslint-plugin": "^6.4.0",
     "@typescript-eslint/parser": "^6.4.0",
@@ -35,6 +36,7 @@
     "rimraf": "^5.0.1",
     "ts-node": "^10.9.1",
     "ts-node-dev": "^2.0.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.1.6"
   }
 }

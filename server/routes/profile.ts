@@ -254,7 +254,6 @@ router.post('/avatar', authenticateToken, upload.single('avatar'), async (req: a
       [userId]
     );
     
-    // 刪除舊頭像檔案
     if (users[0]?.avatar_url) {
       const oldPath = path.join('public', users[0].avatar_url);
       try {
@@ -264,7 +263,6 @@ router.post('/avatar', authenticateToken, upload.single('avatar'), async (req: a
       }
     }
     
-    // 更新資料庫中的頭像URL
     const avatarUrl = `/uploads/avatars/${req.file.filename}`;
     await pool.execute<ResultSetHeader>(
       'UPDATE users SET avatar_url = ? WHERE id = ?',
