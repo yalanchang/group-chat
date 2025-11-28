@@ -5,8 +5,18 @@ import { authenticateToken } from '../middleware/auth'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
-import sharp from 'sharp'
 
+
+
+const convertHeic = async (inputBuffer: Buffer): Promise<Buffer> => {
+  // @ts-ignore
+  const heicConvert = (await import('heic-convert')).default
+  return await heicConvert({
+    buffer: inputBuffer,
+    format: 'JPEG',
+    quality: 0.9
+  })
+}
 
 const uploadDir = path.join(__dirname, '../../public/uploads/messages')
 if (!fs.existsSync(uploadDir)) {
@@ -178,20 +188,23 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req: any
 
     if (isHeicFile(req.file.mimetype, fileName)) {
       try {
+        console.log('🔄 開始轉換 HEIC...')
+        
+        const inputBuffer = fs.readFileSync(req.file.path)
+        const outputBuffer = await convertHeic(inputBuffer)
+        
         const jpgFilename = req.file.filename.replace(/\.(heic|heif)$/i, '.jpg')
         const jpgPath = path.join(uploadDir, jpgFilename)
-
-        await sharp(req.file.path)
-          .jpeg({ quality: 90 })
-          .toFile(jpgPath)
-
+        
+        fs.writeFileSync(jpgPath, outputBuffer)
+        
         // 刪除原始 HEIC 檔案
         fs.unlinkSync(req.file.path)
 
         // 更新檔案資訊
         fileUrl = `/uploads/messages/${jpgFilename}`
         fileName = fileName.replace(/\.(heic|heif)$/i, '.jpg')
-        fileSize = fs.statSync(jpgPath).size
+        fileSize = outputBuffer.length
 
         console.log('✅ HEIC 轉換成功:', jpgFilename)
       } catch (convertError) {
@@ -199,7 +212,6 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req: any
         // 轉換失敗就當作一般檔案處理
       }
     }
-
 
 
     const messageType = isImageFile(req.file.mimetype, fileName) ? 'image' : 'file'
