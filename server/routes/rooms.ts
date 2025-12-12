@@ -395,7 +395,6 @@ router.delete('/:roomId/members/:userId', authenticateToken, async (req: any, re
   const { roomId, userId } = req.params
 
   try {
-    // 檢查請求者是否為管理員
     const [members] = await pool.execute<RowDataPacket[]>(
       'SELECT * FROM room_members WHERE room_id = ? AND user_id = ? AND role = ?',
       [roomId, req.userId, 'admin']
@@ -434,6 +433,7 @@ router.delete('/:roomId/members/:userId', authenticateToken, async (req: any, re
     res.status(500).json({ message: 'Internal server error' })
   }
 })
+
 
 // 申請加入私密房間
 router.post('/:roomId/request', authenticateToken, async (req: any, res) => {
@@ -656,6 +656,9 @@ router.get('/:roomId/request/status', authenticateToken, async (req: any, res) =
     res.status(500).json({ message: '伺服器錯誤' })
   }
 })
+
+
+
 
 
 

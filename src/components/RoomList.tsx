@@ -149,6 +149,28 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
       }
     }
   }
+  const handleDeleteRoom = async (roomId: number) => {
+    if (!confirm('確定要刪除這個房間嗎？')) return;
+  
+    try {
+      const res = await fetch(`/api/rooms/${roomId}`, {
+        method: 'DELETE',
+      });
+  
+      const data = await res.json();
+  
+      if (res.ok) {
+        alert(data.message);
+        setRooms(prev => prev.filter(room => room.id !== roomId));
+      } else {
+        alert(data.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('刪除失敗');
+    }
+  };
+  
 
   return (
     <>
@@ -233,6 +255,7 @@ export default function RoomList({ selectedRoom, onSelectRoom, onMenuClick }: Ro
                             }`}>
                             {room.name}
                           </h3>
+                          
                           {!!!!room.is_private && (
                             <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${selectedRoom === room.id.toString()
                               ? 'bg-white/20 text-white'

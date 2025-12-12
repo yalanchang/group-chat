@@ -89,7 +89,7 @@ router.post('/login', async (req, res) => {
       const token = jwt.sign(
         { userId: user.id, username: user.username },
         process.env.JWT_SECRET!,
-        { expiresIn: '7d' }
+        { expiresIn: '100d' }
       )
 
     await pool.execute(
